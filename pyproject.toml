@@ -1,0 +1,43 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "backtest-audit"
+version = "0.1.0"
+description = "Audit whether a backtest result is real, or an artefact of baselines and leakage"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+dependencies = [
+    "pandas>=2.0",
+    "numpy>=1.24",
+    "scipy>=1.10",
+    "statsmodels>=0.14",
+    "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+# Postgres and market-data ingestion are optional so the metric layer and the
+# demo remain installable and runnable in a bare CI container.
+db = ["psycopg[binary]>=3.1"]
+data = ["yfinance>=0.2"]
+dev = ["pytest>=7.4", "ruff>=0.4"]
+
+[project.scripts]
+backtest-audit = "audit.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B"]

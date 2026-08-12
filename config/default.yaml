@@ -1,0 +1,35 @@
+# All tunable parameters live here so that any run is reproducible from its
+# config alone. Nothing in src/ hardcodes a value that appears in this file.
+
+panel:
+  # Required. There is deliberately no default: metrics that demean by a
+  # per-entity mean must compute it from training data only, and guessing the
+  # boundary would risk leaking evaluation labels into the metric.
+  train_end: null
+  label_name: "realized_range"
+  drop_incomplete: true
+
+metrics:
+  # Correlation used for the demeaned IC. Spearman by default: after the level is
+  # removed the residual deviations are heavy-tailed enough that one extreme
+  # entity can dominate a Pearson estimate for that day.
+  demean_method: "spearman"
+  scope: "test"          # test | train | all
+  min_cross_section: 3   # below this a daily correlation is noise, not a measurement
+
+baselines:
+  # Half-life in OBSERVATIONS, not calendar days. The right persistence horizon
+  # is target-dependent, so this is exposed rather than fixed.
+  ewma_halflife: 5.0
+
+significance:
+  # Newey-West bandwidth. null selects floor(4 * (T/100)^(2/9)). Always reported
+  # alongside the t-statistic, since a HAC statistic without its bandwidth cannot
+  # be reproduced by a reviewer.
+  maxlags: null
+
+ingest:
+  # Only used by the optional Postgres path; the demo needs neither.
+  database_url_env: "AUDIT_DATABASE_URL"
+  universe_size: 200
+  start_date: "2021-01-01"
