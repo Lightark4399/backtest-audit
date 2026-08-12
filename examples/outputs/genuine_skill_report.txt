@@ -1,0 +1,54 @@
+==============================================================================
+                            AUDIT -- genuine_skill                            
+==============================================================================
+
+SCOPE
+  label                 synthetic_persistent_target
+  entities              120
+  dates                 260  (2021-01-04 .. 2021-12-31)
+  rows                  31,200
+  train boundary        2021-08-09
+
+==============================================================================
+BASELINE DECOMPOSITION
+==============================================================================
+
+  Raw IC (Pearson)                               +0.8577   [sd 0.023, hit 100%, n=104]
+  Raw IC (Spearman)                              +0.8399   [sd 0.025, hit 100%, n=104]
+
+  Free score available without any model:
+    ├─ persistence                              +0.8416   [hit 100%]
+    ├─ ewma                                     +0.7913   [hit 100%]
+    ├─ per_entity_train_mean                    +0.6549   [hit 100%]
+    └─ cross_sectional_mean                   undefined   [undefined (constant cross-section)]
+
+  After removing the per-entity level (training-period mean):
+    Demeaned IC                                  +0.6880   [sd 0.054, hit 100%, n=104]
+      t-stat (naive)          128.81
+      t-stat (Newey-West)     101.29   [maxlags=4, p=0.0000]
+      SE inflation              1.27x  [lag-1 autocorr +0.18]
+
+  Increment over strongest baseline (persistence), partial correlation:
+    Incremental IC                               +0.4667   [sd 0.080, hit 100%, n=104]
+      t-stat (naive)           59.36
+      t-stat (Newey-West)      63.57   [maxlags=4, p=0.0000]
+      SE inflation              0.93x  [lag-1 autocorr -0.14]
+
+==============================================================================
+READING
+==============================================================================
+
+  Headline raw IC is +0.8577.
+  A naive predictor (persistence) reaches +0.8416 with no model at all.
+  -- that is 98% of the headline number, available for free.
+
+  Demeaned IC is +0.6880: the prediction contains real information
+  about deviations from each entity's typical level.
+
+==============================================================================
+PROVENANCE
+==============================================================================
+
+  git_commit            unknown (not a git checkout)
+  generated_at          2026-08-12T15:35:24+00:00
+  python                3.12.3

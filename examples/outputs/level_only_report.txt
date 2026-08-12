@@ -1,0 +1,56 @@
+==============================================================================
+                             AUDIT -- level_only                              
+==============================================================================
+
+SCOPE
+  label                 synthetic_persistent_target
+  entities              120
+  dates                 260  (2021-01-04 .. 2021-12-31)
+  rows                  31,200
+  train boundary        2021-08-09
+
+==============================================================================
+BASELINE DECOMPOSITION
+==============================================================================
+
+  Raw IC (Pearson)                               +0.6295   [sd 0.049, hit 100%, n=104]
+  Raw IC (Spearman)                              +0.6028   [sd 0.052, hit 100%, n=104]
+
+  Free score available without any model:
+    ├─ persistence                              +0.8416   [hit 100%]
+    ├─ ewma                                     +0.7913   [hit 100%]
+    ├─ per_entity_train_mean                    +0.6549   [hit 100%]
+    └─ cross_sectional_mean                   undefined   [undefined (constant cross-section)]
+
+  After removing the per-entity level (training-period mean):
+    Demeaned IC                                  +0.0006   [sd 0.098, hit 48%, n=104]
+      t-stat (naive)            0.06
+      t-stat (Newey-West)       0.07   [maxlags=4, p=0.9445]
+      SE inflation              0.84x  [lag-1 autocorr -0.08]
+
+  Increment over strongest baseline (persistence), partial correlation:
+    Incremental IC                               -0.0022   [sd 0.097, hit 45%, n=104]
+      t-stat (naive)           -0.23
+      t-stat (Newey-West)      -0.29   [maxlags=4, p=0.7727]
+      SE inflation              0.81x  [lag-1 autocorr -0.14]
+
+==============================================================================
+READING
+==============================================================================
+
+  Headline raw IC is +0.6295.
+  A naive predictor (persistence) reaches +0.8416 with no model at all.
+  The naive predictor BEATS the model outright: on this metric the model
+  adds nothing over doing no modelling at all.
+
+  Demeaned IC is indistinguishable from zero: once the stable per-entity
+  level is removed, the prediction carries no information about deviations.
+  The headline IC is measuring the level, not forecast skill.
+
+==============================================================================
+PROVENANCE
+==============================================================================
+
+  git_commit            unknown (not a git checkout)
+  generated_at          2026-08-12T15:35:23+00:00
+  python                3.12.3

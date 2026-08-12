@@ -1,0 +1,181 @@
+{
+  "provenance": {
+    "git_commit": "unknown (not a git checkout)",
+    "generated_at": "2026-08-12T15:35:23+00:00",
+    "python": "3.12.3"
+  },
+  "config": {
+    "scope": "test",
+    "demean_method": "spearman",
+    "maxlags": "auto",
+    "baselines": [
+      "persistence",
+      "per_entity_train_mean",
+      "ewma",
+      "cross_sectional_mean"
+    ]
+  },
+  "scope": {
+    "n_rows": 31200,
+    "n_entities": 120,
+    "n_dates": 260,
+    "first_date": "2021-01-04",
+    "last_date": "2021-12-31",
+    "train_end": "2021-08-09",
+    "label_name": "synthetic_persistent_target",
+    "rows_dropped_incomplete": 0
+  },
+  "metrics": {
+    "raw_ic": {
+      "name": "raw_ic",
+      "mean": 0.6295369825586192,
+      "std": 0.04939248572004217,
+      "hit_rate": 1.0,
+      "n_dates_used": 104,
+      "n_dates_total": 104,
+      "n_dates_undefined": 0,
+      "n_dates_too_small": 0,
+      "mean_cross_section_size": 120.0,
+      "method": "pearson",
+      "scope": "test"
+    },
+    "rank_ic": {
+      "name": "rank_ic",
+      "mean": 0.6027638805045221,
+      "std": 0.05223429360305731,
+      "hit_rate": 1.0,
+      "n_dates_used": 104,
+      "n_dates_total": 104,
+      "n_dates_undefined": 0,
+      "n_dates_too_small": 0,
+      "mean_cross_section_size": 120.0,
+      "method": "spearman",
+      "scope": "test"
+    },
+    "demeaned_ic": {
+      "name": "demeaned_ic",
+      "mean": 0.0005622051745046366,
+      "std": 0.09847595916236532,
+      "hit_rate": 0.4807692307692308,
+      "n_dates_used": 104,
+      "n_dates_total": 104,
+      "n_dates_undefined": 0,
+      "n_dates_too_small": 0,
+      "mean_cross_section_size": 120.0,
+      "method": "spearman",
+      "scope": "all",
+      "rows_before_demean": 12480,
+      "rows_after_demean": 12480,
+      "entities_before": 120,
+      "entities_dropped_no_train_history": 0,
+      "demeaned": true
+    },
+    "incremental_ic": {
+      "name": "incremental_ic_vs_persistence",
+      "mean": -0.002213496548512548,
+      "std": 0.09700190044244188,
+      "hit_rate": 0.4519230769230769,
+      "n_dates_used": 104,
+      "n_dates_total": 104,
+      "n_dates_undefined": 0,
+      "n_dates_too_small": 0,
+      "mean_cross_section_size": 120.0,
+      "control": "persistence",
+      "rank_based": true,
+      "demeaned": true,
+      "scope": "test",
+      "statistic": "partial_correlation",
+      "rows_before_demean": 12480,
+      "rows_after_demean": 12480,
+      "entities_before": 120,
+      "entities_dropped_no_train_history": 0,
+      "naive_undemeaned_mean": 0.21943765621394312
+    }
+  },
+  "baselines": [
+    {
+      "name": "persistence",
+      "mean": 0.8415940343,
+      "std": 0.0280015229,
+      "hit_rate": 1.0,
+      "n_dates_used": 104,
+      "n_dates_total": 104,
+      "n_dates_undefined": 0,
+      "n_dates_too_small": 0,
+      "mean_cross_section_size": 120.0,
+      "method": "spearman",
+      "scope": "test",
+      "description": "last observed label for the entity"
+    },
+    {
+      "name": "per_entity_train_mean",
+      "mean": 0.6548516991,
+      "std": 0.0492830058,
+      "hit_rate": 1.0,
+      "n_dates_used": 104,
+      "n_dates_total": 104,
+      "n_dates_undefined": 0,
+      "n_dates_too_small": 0,
+      "mean_cross_section_size": 120.0,
+      "method": "spearman",
+      "scope": "test",
+      "description": "entity's mean label over the training period"
+    },
+    {
+      "name": "ewma",
+      "mean": 0.7913251187,
+      "std": 0.0259776022,
+      "hit_rate": 1.0,
+      "n_dates_used": 104,
+      "n_dates_total": 104,
+      "n_dates_undefined": 0,
+      "n_dates_too_small": 0,
+      "mean_cross_section_size": 120.0,
+      "method": "spearman",
+      "scope": "test",
+      "description": "EWMA of past labels (halflife=5 obs)"
+    },
+    {
+      "name": "cross_sectional_mean",
+      "mean": null,
+      "std": null,
+      "hit_rate": null,
+      "n_dates_used": 0,
+      "n_dates_total": 104,
+      "n_dates_undefined": 104,
+      "n_dates_too_small": 0,
+      "mean_cross_section_size": null,
+      "method": "spearman",
+      "scope": "test",
+      "description": "previous date's cross-sectional mean label"
+    }
+  ],
+  "significance": {
+    "demeaned_ic": {
+      "n_obs": 104,
+      "mean": 0.0005622051745046366,
+      "naive_se": 0.009656362257474365,
+      "naive_tstat": 0.05822121825115561,
+      "hac_se": 0.008080372586191422,
+      "hac_tstat": 0.06957664000115443,
+      "hac_pvalue": 0.9445306304502817,
+      "se_inflation": 0.8367926109997509,
+      "maxlags": 4,
+      "lag1_autocorr": -0.07934727218444688,
+      "notes": []
+    },
+    "incremental_ic": {
+      "n_obs": 104,
+      "mean": -0.002213496548512548,
+      "naive_se": 0.009511818907915304,
+      "naive_tstat": -0.23271012305234035,
+      "hac_se": 0.007662218150776238,
+      "hac_tstat": -0.28888456383720973,
+      "hac_pvalue": 0.7726697166278566,
+      "se_inflation": 0.8055471014487132,
+      "maxlags": 4,
+      "lag1_autocorr": -0.14396549726499933,
+      "notes": []
+    }
+  }
+}
