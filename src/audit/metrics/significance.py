@@ -27,7 +27,6 @@ without its lag count is not reproducible.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Optional
 
 import numpy as np
 import pandas as pd
@@ -96,7 +95,7 @@ def _lag1_autocorr(x: np.ndarray) -> float:
 
 def newey_west_tstat(
     series: pd.Series | np.ndarray,
-    maxlags: Optional[int] = None,
+    maxlags: int | None = None,
 ) -> SignificanceResult:
     """HAC-corrected test that the mean of ``series`` differs from zero.
 

@@ -46,8 +46,8 @@ silently fall back to the full sample.
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Iterable, Optional
 
 import pandas as pd
 
@@ -84,7 +84,7 @@ class Panel:
     """
 
     data: pd.DataFrame
-    train_end: Optional[pd.Timestamp] = None
+    train_end: pd.Timestamp | None = None
     label_name: str = "label"
 
     # ------------------------------------------------------------------
@@ -94,11 +94,11 @@ class Panel:
     def from_frame(
         cls,
         df: pd.DataFrame,
-        train_end: Optional[str | pd.Timestamp] = None,
+        train_end: str | pd.Timestamp | None = None,
         label_name: str = "label",
         *,
         drop_incomplete: bool = True,
-    ) -> "Panel":
+    ) -> Panel:
         """Validate and normalise a raw frame into a ``Panel``.
 
         Parameters
@@ -226,13 +226,13 @@ class Panel:
     # ------------------------------------------------------------------
     # Helpers used by baselines and metrics
     # ------------------------------------------------------------------
-    def with_column(self, name: str, values: pd.Series) -> "Panel":
+    def with_column(self, name: str, values: pd.Series) -> Panel:
         """Return a new Panel with an extra column aligned on the panel index."""
         out = self.data.copy()
         out[name] = values.reindex(out.index)
         return Panel(data=out, train_end=self.train_end, label_name=self.label_name)
 
-    def replace_prediction(self, values: pd.Series, *, label_name: Optional[str] = None) -> "Panel":
+    def replace_prediction(self, values: pd.Series, *, label_name: str | None = None) -> Panel:
         """Return a new Panel whose ``prediction`` column is ``values``.
 
         Used to evaluate baselines through exactly the same code path as the
@@ -267,8 +267,7 @@ class Panel:
     def cross_sections(self, scope: str = "test") -> Iterable[tuple[pd.Timestamp, pd.DataFrame]]:
         """Yield ``(date, frame)`` for each event date in the chosen scope."""
         view = self.evaluation_view(scope)
-        for date, group in view.groupby(DATE, sort=True):
-            yield date, group
+        yield from view.groupby(DATE, sort=True)
 
     def describe(self) -> dict:
         """Summary used in report headers so every report states its own scope."""

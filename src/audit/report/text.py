@@ -18,8 +18,6 @@ whether the result is trustworthy. That drives three choices:
 
 from __future__ import annotations
 
-from typing import Optional
-
 import numpy as np
 import pandas as pd
 
@@ -29,7 +27,7 @@ from ..metrics.significance import SignificanceResult
 WIDTH = 78
 
 
-def _fmt(value: Optional[float], places: int = 4) -> str:
+def _fmt(value: float | None, places: int = 4) -> str:
     if value is None or (isinstance(value, float) and not np.isfinite(value)):
         return "undefined"
     return f"{value:+.{places}f}"
@@ -109,9 +107,9 @@ def format_baseline_decomposition(
     rank: ICSeries,
     baseline_table: pd.DataFrame,
     demeaned: ICSeries,
-    incremental: Optional[ICSeries],
-    demeaned_sig: Optional[SignificanceResult] = None,
-    incremental_sig: Optional[SignificanceResult] = None,
+    incremental: ICSeries | None,
+    demeaned_sig: SignificanceResult | None = None,
+    incremental_sig: SignificanceResult | None = None,
 ) -> str:
     """The core exhibit: headline IC, what a naive predictor gets for free, and the remainder."""
     out = [_header("BASELINE DECOMPOSITION"), ""]
@@ -222,11 +220,11 @@ def render_report(
     rank: ICSeries,
     baseline_table: pd.DataFrame,
     demeaned: ICSeries,
-    incremental: Optional[ICSeries] = None,
-    demeaned_sig: Optional[SignificanceResult] = None,
-    incremental_sig: Optional[SignificanceResult] = None,
+    incremental: ICSeries | None = None,
+    demeaned_sig: SignificanceResult | None = None,
+    incremental_sig: SignificanceResult | None = None,
     title: str = "BACKTEST CREDIBILITY AUDIT",
-    provenance: Optional[dict] = None,
+    provenance: dict | None = None,
 ) -> str:
     """Assemble the full text report."""
     parts = [_rule("="), title.center(WIDTH), _rule("=")]

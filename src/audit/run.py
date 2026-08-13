@@ -17,12 +17,11 @@ import platform
 import subprocess
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Optional
 
 import pandas as pd
 
 from .metrics.baselines import Baseline, default_baselines, evaluate_baselines, strongest_baseline
-from .metrics.ic import ICSeries, demeaned_ic, raw_ic, rank_ic
+from .metrics.ic import ICSeries, demeaned_ic, rank_ic, raw_ic
 from .metrics.partial import incremental_ic
 from .metrics.significance import SignificanceResult, newey_west_tstat
 from .panel import Panel
@@ -63,9 +62,9 @@ class AuditResult:
     rank: ICSeries
     baseline_table: pd.DataFrame
     demeaned: ICSeries
-    incremental: Optional[ICSeries] = None
-    demeaned_sig: Optional[SignificanceResult] = None
-    incremental_sig: Optional[SignificanceResult] = None
+    incremental: ICSeries | None = None
+    demeaned_sig: SignificanceResult | None = None
+    incremental_sig: SignificanceResult | None = None
     provenance: dict = field(default_factory=dict)
     config: dict = field(default_factory=dict)
 
@@ -110,10 +109,10 @@ class AuditResult:
 
 def run_baseline_audit(
     panel: Panel,
-    baselines: Optional[list[Baseline]] = None,
+    baselines: list[Baseline] | None = None,
     scope: str = "test",
     demean_method: str = "spearman",
-    maxlags: Optional[int] = None,
+    maxlags: int | None = None,
     include_naive_increment: bool = False,
 ) -> AuditResult:
     """Run the baseline-decomposition audit (module 1).

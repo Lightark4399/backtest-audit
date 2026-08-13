@@ -24,7 +24,7 @@ from audit.metrics.baselines import (
 )
 from audit.metrics.partial import incremental_ic, partial_correlation
 from audit.panel import DATE, ENTITY, LABEL, PRED, Panel
-from audit.synthetic import generate_panel, generate_random_panel
+from audit.synthetic import generate_panel
 
 BASELINES = {b.name: b for b in default_baselines()}
 

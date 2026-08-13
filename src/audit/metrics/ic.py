@@ -55,7 +55,6 @@ construction and exists precisely to exercise this path.)
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Optional
 
 import numpy as np
 import pandas as pd
@@ -126,7 +125,7 @@ class ICSeries:
         }
 
 
-def _corr(x: np.ndarray, y: np.ndarray, method: str) -> Optional[float]:
+def _corr(x: np.ndarray, y: np.ndarray, method: str) -> float | None:
     """Correlation of two aligned arrays, or None if undefined.
 
     Returns None (rather than NaN) so callers must handle the undefined case
@@ -157,7 +156,7 @@ def cross_sectional_ic(
     scope: str = "test",
     pred_col: str = PRED,
     label_col: str = LABEL,
-    name: Optional[str] = None,
+    name: str | None = None,
 ) -> ICSeries:
     """Per-date cross-sectional IC between ``pred_col`` and ``label_col``."""
     view = panel.evaluation_view(scope)

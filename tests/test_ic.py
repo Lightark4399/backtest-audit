@@ -15,8 +15,8 @@ from audit.metrics.ic import (
     MIN_CROSS_SECTION,
     cross_sectional_ic,
     demeaned_ic,
-    raw_ic,
     rank_ic,
+    raw_ic,
 )
 from audit.panel import Panel, PanelError
 from audit.synthetic import (
@@ -150,7 +150,9 @@ def test_demeaning_uses_training_mean_only():
     rows = []
     for e in ("A", "B", "C", "D"):
         for i, d in enumerate(dates):
-            rows.append({"entity_id": e, "event_date": d, "prediction": float(i), "label": float(i)})
+            rows.append(
+                {"entity_id": e, "event_date": d, "prediction": float(i), "label": float(i)}
+            )
     frame = pd.DataFrame(rows)
     train_end = dates[3]
 

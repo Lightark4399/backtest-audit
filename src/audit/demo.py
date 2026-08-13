@@ -70,7 +70,11 @@ def main(argv: list[str] | None = None) -> int:
                 result.raw.mean,
                 result.demeaned.mean,
                 result.incremental.mean if result.incremental else float("nan"),
-                (result.incremental.meta.get("naive_undemeaned_mean") if result.incremental else None),
+                (
+                    result.incremental.meta.get("naive_undemeaned_mean")
+                    if result.incremental
+                    else None
+                ),
             )
         )
 
