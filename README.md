@@ -270,6 +270,55 @@ autoregressive pipeline turns *into* contemporaneous leakage, and passes the
 alignment audit. The module detects misalignment when the prediction is not
 itself built from lagged labels. Both cases are covered in the tests.
 
+### Point-in-time: the only module that catches an unknowable feature
+
+The alignment audit is blind to a prediction that matches its label for the wrong
+reason. This module supplies the missing check by asking a different question:
+*could this have been computed at the time?*
+
+Observations are stored bitemporally -- ``event_date`` for the day described,
+``knowledge_date`` for the day the value became available -- and corrections are
+inserted as new rows, never updates. The same feature SQL is then run over two
+relations: the restated view (current best value for every date) and an as-of
+reconstruction (the value as it stood on each date). Scoring the same model both
+ways puts the look-ahead advantage in the same units as the rest of the report.
+
+On a constructed scenario where 30% of observations are first reported with error
+and corrected five days later, the restated backtest scores a demeaned IC of
+0.727 against the point-in-time 0.639 -- **an unearned +0.088**. The relationship
+is dose-responsive: 10% / 35% / 60% revision rates give gaps of +0.045 / +0.101 /
++0.178.
+
+Three details make that number attributable rather than merely suggestive:
+
+* **Both vintages go through the identical SQL macro.** Two feature
+  implementations would let a difference be an artefact of the code.
+* **Both are scored on exactly the same evaluation dates.** The as-of
+  reconstruction is sampled, since each date costs a pass over the history.
+  Leaving the restated arm on the full date set made the panels differ in
+  composition as well as vintage -- on the no-revision control that confound
+  alone produced a gap of -0.013, larger than the threshold used to call a result
+  material. With the dates aligned, the control gives a gap of exactly zero.
+* **The restated arm does not move with the revision scenario.** It sees final
+  values by definition, and a test asserts it is invariant to the revision rate,
+  so the gap can only come from the as-of arm.
+
+When nothing was ever revised the audit reports no gap -- and says explicitly
+that this is *not* a clean bill of health, since a feature built from same-day
+data is unknowable in time whether or not any value was corrected.
+
+### Postgres is the reference, DuckDB is what runs
+
+``sql/001_schema.sql`` and ``sql/002_pit_views.sql`` are the reference design.
+``sql/duckdb/001_schema.sql`` is the executable port, and it is what the
+integration tests run against: DuckDB is embedded, so the point-in-time tests
+need no service to provision and run in CI unchanged. The dialects agree on
+everything load-bearing here -- ``DISTINCT ON``, window frames, CTEs, CHECK
+constraints. Two differences are documented where they bite: Postgres
+set-returning functions become table macros, and ``ASOF`` is a reserved word in
+DuckDB (it has a native ``ASOF JOIN``), so the macro parameter is named
+``cutoff``.
+
 ---
 
 ## Status
@@ -277,12 +326,13 @@ itself built from lagged labels. Both cases are covered in the tests.
 Implemented: panel contract, baseline decomposition, demeaned IC,
 partial-correlation increment with the errors-in-variables correction,
 Newey-West inference, alignment audit (shuffle / forward shift / backward
-diagnostic), leaky-vs-clean example pipelines with five switchable defects, text
-and JSON reports, offline demo, PIT schema and SQL feature views, 62 tests.
+diagnostic), leaky-vs-clean example pipelines with five switchable defects,
+bitemporal store with as-of reconstruction, point-in-time vs restated
+comparison, text and JSON reports, offline demo, 75 tests.
 
-Next: point-in-time vs restated comparison, universe reconstruction for
-survivorship, group decomposition, effective sample size, validation-protocol
-comparison (random split vs walk-forward), HTML report.
+Next: universe reconstruction for survivorship, group decomposition, effective
+sample size, validation-protocol comparison (random split vs walk-forward), HTML
+report.
 
 ---
 
