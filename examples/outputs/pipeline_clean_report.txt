@@ -61,6 +61,24 @@ ALIGNMENT AUDIT
         properly by the persistence baseline in the decomposition above.
 
 ==============================================================================
+SURVIVORSHIP
+==============================================================================
+
+  120 entities, 0 absent at the end (0.0% attrition)
+
+  Point-in-time universe (demeaned IC)             +0.7138
+  Survivors only (demeaned IC)                     +0.7138
+  Gap attributable to survivorship                 +0.0000
+
+  [----]
+        NO ATTRITION: every entity is present on the final date, so a
+        survivors-only universe is identical to the point-in-time one. This
+        says nothing about a real universe -- a panel assembled without
+        delisted entities in the first place would look exactly like this,
+        and the absence would be invisible here. Check that the source
+        universe was built from listing and delisting dates.
+
+==============================================================================
 READING
 ==============================================================================
 
@@ -75,6 +93,6 @@ READING
 PROVENANCE
 ==============================================================================
 
-  git_commit            6a021ee-dirty
-  generated_at          2026-08-14T17:51:37+00:00
+  git_commit            a5dec29-dirty
+  generated_at          2026-08-14T21:14:49+00:00
   python                3.12.10

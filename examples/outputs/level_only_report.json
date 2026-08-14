@@ -1,7 +1,7 @@
 {
   "provenance": {
-    "git_commit": "6a021ee-dirty",
-    "generated_at": "2026-08-14T17:51:32+00:00",
+    "git_commit": "a5dec29-dirty",
+    "generated_at": "2026-08-14T21:14:41+00:00",
     "python": "3.12.10"
   },
   "config": {
@@ -14,7 +14,9 @@
       "ewma",
       "cross_sectional_mean"
     ],
-    "alignment_audit": true
+    "alignment_audit": true,
+    "group_column": "group",
+    "survivorship_audit": true
   },
   "scope": {
     "n_rows": 31200,
@@ -210,6 +212,65 @@
       "all_passed": false,
       "any_failed": false
     }
+  },
+  "grouping": {
+    "pooled_ic": 0.6027638805045221,
+    "within_ic_weighted": 0.5979661389983971,
+    "within_ic_unweighted": 0.5933953509796452,
+    "between_ic": 0.5923076923076923,
+    "level_effect": 0.004797741506124997,
+    "n_groups": 4,
+    "group_column": "group",
+    "passed": true,
+    "verdict": "PASS: within-group IC (+0.5980) is close to pooled (+0.6028). The ranking ability survives inside groups, so it is not an artefact of group-level differences.",
+    "per_group": [
+      {
+        "group": 0,
+        "n_rows": 3120,
+        "typical_cross_section": 30.0,
+        "ic": 0.5747967827500642,
+        "note": ""
+      },
+      {
+        "group": 1,
+        "n_rows": 2704,
+        "typical_cross_section": 26.0,
+        "ic": 0.5370874424720579,
+        "note": ""
+      },
+      {
+        "group": 2,
+        "n_rows": 3120,
+        "typical_cross_section": 30.0,
+        "ic": 0.5874860956618465,
+        "note": ""
+      },
+      {
+        "group": 3,
+        "n_rows": 3536,
+        "typical_cross_section": 34.0,
+        "ic": 0.6742110830346124,
+        "note": ""
+      }
+    ],
+    "method": "spearman",
+    "scope": "test",
+    "material_gap_threshold": 0.02,
+    "n_groups_too_small": 0
+  },
+  "survivorship": {
+    "survivors_ic": 0.6027638805045221,
+    "pit_ic": 0.6027638805045221,
+    "survivors_demeaned_ic": 0.0005622051745046366,
+    "pit_demeaned_ic": 0.0005622051745046366,
+    "gap": 0.0,
+    "n_entities_total": 120,
+    "n_entities_surviving": 120,
+    "n_entities_delisted": 0,
+    "survivor_rate": 1.0,
+    "passed": null,
+    "verdict": "NO ATTRITION: every entity is present on the final date, so a survivors-only universe is identical to the point-in-time one. This says nothing about a real universe -- a panel assembled without delisted entities in the first place would look exactly like this, and the absence would be invisible here. Check that the source universe was built from listing and delisting dates.",
+    "tail_dates": 1
   },
   "significance": {
     "demeaned_ic": {

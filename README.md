@@ -307,6 +307,50 @@ When nothing was ever revised the audit reports no gap -- and says explicitly
 that this is *not* a clean bill of health, since a feature built from same-day
 data is unknowable in time whether or not any value was corrected.
 
+### Survivorship is the one bias with nothing to look at
+
+Every other check examines rows that exist. Survivorship is about which rows
+exist at all, and that makes it the hardest to notice: no anomalous value, no
+correlation behaving oddly, nothing to flag. A universe backfilled from a current
+constituent list simply never loads the entities that failed.
+
+The audit reconstructs membership by listing and delisting dates and scores the
+same model both ways. On a panel where a quarter of entities delist and those
+entities are genuinely harder to forecast, restricting to survivors raises the
+demeaned IC from 0.495 to 0.546 -- **+0.051 of unearned score**.
+
+The control case is what makes it a measurement rather than an alarm: when
+attrition is *uncoupled* from predictability, the same audit reports a gap of
+-0.002. Entities leaving for reasons unrelated to the target cost sample size but
+introduce no bias, and a check that flagged that would be flagging attrition
+itself.
+
+On a balanced panel the audit reports **not a pass but an unanswerable
+question** -- a universe assembled without its delisted entities in the first
+place looks exactly like a complete one, and the absence is invisible from inside
+the data.
+
+### Group decomposition: a score that only works across groups
+
+If entities fall into groups with different levels -- sectors, exchanges, size
+bands -- a prediction that merely identifies the group will rank the pooled
+cross-section well while ranking nothing within any group. That distinction is
+practical, not academic: a forecast is used inside a group far more often than
+across one.
+
+The decomposition reports pooled IC, size-weighted within-group IC, and
+between-group IC. On a prediction constructed to encode only the group, pooled IC
+reads **+0.935** while within-group IC is **+0.005** and between-group is
+**+1.000**.
+
+Two choices worth noting. Within-group ICs are averaged **weighted by group
+size**, because an unweighted mean lets a four-entity group count as much as a
+four-hundred-entity one, and small groups produce the noisiest estimates; the
+unweighted figure is reported alongside, since a gap between the two is itself a
+sign of heterogeneous group quality. And a group whose typical cross-section is
+below three is reported as `undefined` rather than averaged in, for the same
+reason degenerate correlations are excluded elsewhere.
+
 ### Postgres is the reference, DuckDB is what runs
 
 ``sql/001_schema.sql`` and ``sql/002_pit_views.sql`` are the reference design.
@@ -328,11 +372,11 @@ partial-correlation increment with the errors-in-variables correction,
 Newey-West inference, alignment audit (shuffle / forward shift / backward
 diagnostic), leaky-vs-clean example pipelines with five switchable defects,
 bitemporal store with as-of reconstruction, point-in-time vs restated
-comparison, text and JSON reports, offline demo, 75 tests.
+comparison, survivorship audit via universe reconstruction, within/between group
+decomposition, text and JSON reports, offline demo, 95 tests.
 
-Next: universe reconstruction for survivorship, group decomposition, effective
-sample size, validation-protocol comparison (random split vs walk-forward), HTML
-report.
+Next: effective sample size, validation-protocol comparison (random split vs
+walk-forward), spurious-regression demonstration, HTML report.
 
 ---
 

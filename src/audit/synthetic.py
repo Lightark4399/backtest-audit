@@ -40,6 +40,9 @@ from dataclasses import dataclass
 import numpy as np
 import pandas as pd
 
+from .panel import DATE as DATE_COL
+from .panel import ENTITY as ENTITY_COL
+from .panel import PRED as PRED_COL
 from .panel import Panel
 
 
@@ -152,6 +155,77 @@ def generate_panel(
         frame, train_end=train_end, label_name="synthetic_persistent_target"
     )
     return panel, truth
+
+
+def generate_panel_with_delisting(
+    spec: SyntheticSpec | None = None,
+    *,
+    skill: float = 0.4,
+    delist_fraction: float = 0.25,
+    delist_hardness: float = 0.6,
+) -> tuple[Panel, pd.DataFrame]:
+    """Panel where a subset of entities stops trading part-way through.
+
+    ``delist_hardness`` controls the mechanism that makes survivorship a bias
+    rather than merely attrition: entities selected for delisting have their
+    predictable component scaled DOWN by this factor, so they are genuinely
+    harder to forecast. Dropping them therefore inflates the score.
+
+    That coupling is the whole point. Random attrition -- entities leaving for
+    reasons unrelated to the target -- costs sample size but introduces no bias,
+    and a survivorship audit run on randomly-attriting data should correctly
+    report no gap. Making the mechanism explicit lets both cases be tested.
+
+    Returns the panel plus a frame of listing/delisting dates suitable for
+    loading into the ``entities`` table.
+    """
+    spec = spec or SyntheticSpec()
+    rng = np.random.default_rng(spec.seed + 991)
+
+    panel, truth = generate_panel(spec, skill=skill, level_leak=1.0)
+    data = panel.data.copy()
+    entities = sorted(data[ENTITY_COL].unique())
+    dates = pd.DatetimeIndex(sorted(data[DATE_COL].unique()))
+
+    n_delist = int(len(entities) * delist_fraction)
+    doomed = set(rng.choice(entities, size=n_delist, replace=False))
+
+    # Delisting is spread across the EVALUATION period rather than the whole
+    # history. An entity that leaves before evaluation begins contributes nothing
+    # to either arm's score, so scattering delistings over the full panel would
+    # dilute the very effect this generator exists to produce.
+    train_idx = int(dates.searchsorted(panel.train_end))
+    first, last = train_idx + 1, len(dates)
+    delist_at = {e: dates[rng.integers(first, last)] for e in sorted(doomed)}
+
+    # Doomed entities are harder to predict: their prediction is shrunk toward
+    # the entity level, retaining the free component and losing the skilful one.
+    level = data.groupby(ENTITY_COL)[PRED_COL].transform("mean")
+    is_doomed = data[ENTITY_COL].isin(doomed)
+    data.loc[is_doomed, PRED_COL] = (
+        level[is_doomed]
+        + (data.loc[is_doomed, PRED_COL] - level[is_doomed]) * delist_hardness
+    )
+
+    # Remove rows after each doomed entity's delisting date.
+    keep = pd.Series(True, index=data.index)
+    for e, d in delist_at.items():
+        keep &= ~((data[ENTITY_COL] == e) & (data[DATE_COL] > d))
+    data = data.loc[keep].reset_index(drop=True)
+
+    meta = pd.DataFrame(
+        {
+            "entity_id": entities,
+            "sector": [f"S{i % spec.n_groups}" for i in range(len(entities))],
+            "listing_date": [dates[0]] * len(entities),
+            "delisting_date": [delist_at.get(e) for e in entities],
+        }
+    )
+
+    out = Panel(
+        data=data, train_end=panel.train_end, label_name="synthetic_with_delisting"
+    )
+    return out, meta
 
 
 def generate_perfect_panel(n_entities: int = 50, n_dates: int = 30) -> Panel:

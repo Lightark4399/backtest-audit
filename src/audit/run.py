@@ -21,6 +21,8 @@ from datetime import datetime, timezone
 import pandas as pd
 
 from .audits.alignment import alignment_summary, run_alignment_audit
+from .audits.grouping import decompose_by_group
+from .audits.survivorship import run_survivorship_audit
 from .metrics.baselines import Baseline, default_baselines, evaluate_baselines, strongest_baseline
 from .metrics.ic import ICSeries, demeaned_ic, rank_ic, raw_ic
 from .metrics.partial import incremental_ic
@@ -67,6 +69,8 @@ class AuditResult:
     demeaned_sig: SignificanceResult | None = None
     incremental_sig: SignificanceResult | None = None
     alignment: list | None = None
+    grouping: object = None
+    survivorship: object = None
     provenance: dict = field(default_factory=dict)
     config: dict = field(default_factory=dict)
 
@@ -81,6 +85,8 @@ class AuditResult:
             demeaned_sig=self.demeaned_sig,
             incremental_sig=self.incremental_sig,
             alignment_checks=self.alignment,
+            group_result=self.grouping,
+            survivorship_result=self.survivorship,
             title=title,
             provenance=self.provenance,
         )
@@ -102,6 +108,10 @@ class AuditResult:
                 "checks": [c.to_dict() for c in self.alignment] if self.alignment else None,
                 "summary": alignment_summary(self.alignment) if self.alignment else None,
             },
+            "grouping": self.grouping.to_dict() if self.grouping is not None else None,
+            "survivorship": (
+                self.survivorship.to_dict() if self.survivorship is not None else None
+            ),
             "significance": {
                 "demeaned_ic": self.demeaned_sig.to_dict() if self.demeaned_sig else None,
                 "incremental_ic": (
@@ -122,6 +132,8 @@ def run_baseline_audit(
     maxlags: int | None = None,
     include_naive_increment: bool = False,
     run_alignment: bool = True,
+    group_column: str | None = "group",
+    run_survivorship: bool = True,
 ) -> AuditResult:
     """Run the baseline-decomposition audit (module 1).
 
@@ -176,6 +188,18 @@ def run_baseline_audit(
     # precise analysis of an artefact.
     alignment = run_alignment_audit(panel, scope=scope) if run_alignment else None
 
+    # Group decomposition runs only when a grouping key is present. Absence is
+    # not a failure -- many panels have no natural grouping -- so it is skipped
+    # silently rather than reported as an unmet check.
+    grouping = None
+    if group_column and group_column in panel.data.columns:
+        grouping = decompose_by_group(panel, group_col=group_column, scope=scope)
+
+    # Survivorship needs no extra input: attrition is visible in the panel
+    # itself. On a balanced panel it correctly reports that the question cannot
+    # be answered from the data.
+    survivorship = run_survivorship_audit(panel, scope=scope) if run_survivorship else None
+
     provenance = {
         "git_commit": _git_commit(),
         "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
@@ -187,6 +211,8 @@ def run_baseline_audit(
         "maxlags": maxlags if maxlags is not None else "auto",
         "baselines": [b.name for b in baselines],
         "alignment_audit": run_alignment,
+        "group_column": group_column,
+        "survivorship_audit": run_survivorship,
     }
 
     return AuditResult(
@@ -199,6 +225,8 @@ def run_baseline_audit(
         demeaned_sig=dm_sig,
         incremental_sig=inc_sig,
         alignment=alignment,
+        grouping=grouping,
+        survivorship=survivorship,
         provenance=provenance,
         config=config,
     )

@@ -59,6 +59,47 @@ ALIGNMENT AUDIT
         to the outcome it forecasts than to the one it was built from.
 
 ==============================================================================
+GROUP DECOMPOSITION
+==============================================================================
+
+  Grouping key: group  (4 groups scored)
+
+  Pooled IC (whole cross-section)                  +0.8399
+  Within-group IC (size-weighted)                  +0.8295
+  Within-group IC (unweighted)                     +0.8280
+  Between-group IC (ranking groups)                +0.7615
+  Level effect (pooled - within)                   +0.0104
+
+  [PASS]
+        PASS: within-group IC (+0.8295) is close to pooled (+0.8399). The
+        ranking ability survives inside groups, so it is not an artefact of
+        group-level differences.
+
+    group               n rows   typical n        IC
+    0                    3,120          30   +0.8261
+    1                    2,704          26   +0.8137
+    2                    3,120          30   +0.8142
+    3                    3,536          34   +0.8580
+
+==============================================================================
+SURVIVORSHIP
+==============================================================================
+
+  120 entities, 0 absent at the end (0.0% attrition)
+
+  Point-in-time universe (demeaned IC)             +0.6880
+  Survivors only (demeaned IC)                     +0.6880
+  Gap attributable to survivorship                 +0.0000
+
+  [----]
+        NO ATTRITION: every entity is present on the final date, so a
+        survivors-only universe is identical to the point-in-time one. This
+        says nothing about a real universe -- a panel assembled without
+        delisted entities in the first place would look exactly like this,
+        and the absence would be invisible here. Check that the source
+        universe was built from listing and delisting dates.
+
+==============================================================================
 READING
 ==============================================================================
 
@@ -73,6 +114,6 @@ READING
 PROVENANCE
 ==============================================================================
 
-  git_commit            6a021ee-dirty
-  generated_at          2026-08-14T17:51:34+00:00
+  git_commit            a5dec29-dirty
+  generated_at          2026-08-14T21:14:45+00:00
   python                3.12.10

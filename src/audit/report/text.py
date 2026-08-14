@@ -254,6 +254,101 @@ def format_alignment_audit(checks: list) -> str:
     return "\n".join(out).rstrip()
 
 
+def _wrap(text: str, indent: int = 8) -> list[str]:
+    """Wrap a verdict so long explanations stay readable in a terminal."""
+    pad = " " * indent
+    out, line = [], pad
+    for w in text.split():
+        if len(line) + len(w) + 1 > WIDTH - 2:
+            out.append(line)
+            line = pad + w
+        else:
+            line = f"{line} {w}" if line.strip() else line + w
+    if line.strip():
+        out.append(line)
+    return out
+
+
+def format_group_decomposition(result) -> str:
+    """Within-group vs between-group split of the pooled score."""
+    mark = {True: "PASS", False: "FAIL", None: "----"}[result.passed]
+    out = [_header("GROUP DECOMPOSITION"), ""]
+    out.append(f"  Grouping key: {result.group_column}  ({result.n_groups} groups scored)")
+    out.append("")
+    out.append(f"  {'Pooled IC (whole cross-section)':<44}{result.pooled_ic:>+12.4f}")
+    out.append(
+        f"  {'Within-group IC (size-weighted)':<44}{result.within_ic_weighted:>+12.4f}"
+    )
+    out.append(
+        f"  {'Within-group IC (unweighted)':<44}{result.within_ic_unweighted:>+12.4f}"
+    )
+    out.append(f"  {'Between-group IC (ranking groups)':<44}{result.between_ic:>+12.4f}")
+    out.append(f"  {'Level effect (pooled - within)':<44}{result.level_effect:>+12.4f}")
+    out.append("")
+    out.append(f"  [{mark}]")
+    out.extend(_wrap(result.verdict))
+
+    table = result.per_group
+    if len(table) <= 12:
+        out.append("")
+        out.append(f"    {'group':<16}{'n rows':>10}{'typical n':>12}{'IC':>10}")
+        for g, row in table.iterrows():
+            ic = "undefined" if pd.isna(row["ic"]) else f"{row['ic']:+.4f}"
+            out.append(
+                f"    {str(g):<16}{int(row['n_rows']):>10,}"
+                f"{row['typical_cross_section']:>12.0f}{ic:>10}"
+            )
+    return "\n".join(out)
+
+
+def format_survivorship(result) -> str:
+    """Survivors-only vs point-in-time universe."""
+    mark = {True: "PASS", False: "FAIL", None: "----"}[result.passed]
+    out = [_header("SURVIVORSHIP"), ""]
+    out.append(
+        f"  {result.n_entities_total} entities, {result.n_entities_delisted} absent "
+        f"at the end ({1 - result.survivor_rate:.1%} attrition)"
+    )
+    out.append("")
+    out.append(
+        f"  {'Point-in-time universe (demeaned IC)':<44}{result.pit_demeaned_ic:>+12.4f}"
+    )
+    out.append(
+        f"  {'Survivors only (demeaned IC)':<44}{result.survivors_demeaned_ic:>+12.4f}"
+    )
+    out.append(f"  {'Gap attributable to survivorship':<44}{result.gap:>+12.4f}")
+    out.append("")
+    out.append(f"  [{mark}]")
+    out.extend(_wrap(result.verdict))
+    return "\n".join(out)
+
+
+def format_pit(result) -> str:
+    """Restated vs point-in-time data vintage."""
+    mark = {True: "PASS", False: "FAIL", None: "----"}[result.passed]
+    out = [_header("POINT-IN-TIME (DATA VINTAGE)"), ""]
+    out.append("  Could these features have been computed at the time?")
+    out.append("")
+    out.append(
+        f"  {'Restated data (corrections included)':<44}"
+        f"{result.restated_demeaned_ic:>+12.4f}"
+    )
+    out.append(
+        f"  {'As-of data (known at the time)':<44}{result.asof_demeaned_ic:>+12.4f}"
+    )
+    out.append(f"  {'Look-ahead advantage':<44}{result.gap:>+12.4f}")
+    out.append("")
+    out.append(
+        f"  {result.n_revisions:,} of {result.n_observations:,} observations "
+        f"corrected ({result.revision_rate:.1%}), mean lag "
+        f"{result.mean_revision_lag_days:.0f} days"
+    )
+    out.append("")
+    out.append(f"  [{mark}]")
+    out.extend(_wrap(result.verdict))
+    return "\n".join(out)
+
+
 def render_report(
     scope: dict,
     raw: ICSeries,
@@ -264,6 +359,9 @@ def render_report(
     demeaned_sig: SignificanceResult | None = None,
     incremental_sig: SignificanceResult | None = None,
     alignment_checks: list | None = None,
+    group_result=None,
+    survivorship_result=None,
+    pit_result=None,
     title: str = "BACKTEST CREDIBILITY AUDIT",
     provenance: dict | None = None,
 ) -> str:
@@ -278,6 +376,12 @@ def render_report(
     )
     if alignment_checks:
         parts.append(format_alignment_audit(alignment_checks))
+    if group_result is not None:
+        parts.append(format_group_decomposition(group_result))
+    if survivorship_result is not None:
+        parts.append(format_survivorship(survivorship_result))
+    if pit_result is not None:
+        parts.append(format_pit(pit_result))
     parts.append(format_interpretation(raw, baseline_table, demeaned))
 
     if provenance:

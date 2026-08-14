@@ -1,7 +1,7 @@
 {
   "provenance": {
-    "git_commit": "6a021ee-dirty",
-    "generated_at": "2026-08-14T17:51:40+00:00",
+    "git_commit": "a5dec29-dirty",
+    "generated_at": "2026-08-14T21:14:52+00:00",
     "python": "3.12.10"
   },
   "config": {
@@ -14,7 +14,9 @@
       "ewma",
       "cross_sectional_mean"
     ],
-    "alignment_audit": true
+    "alignment_audit": true,
+    "group_column": "group",
+    "survivorship_audit": true
   },
   "scope": {
     "n_rows": 24480,
@@ -207,6 +209,21 @@
       "all_passed": true,
       "any_failed": false
     }
+  },
+  "grouping": null,
+  "survivorship": {
+    "survivors_ic": 0.8641896051588129,
+    "pit_ic": 0.8641896051588129,
+    "survivors_demeaned_ic": 0.8153377906006093,
+    "pit_demeaned_ic": 0.8153377906006093,
+    "gap": 0.0,
+    "n_entities_total": 96,
+    "n_entities_surviving": 96,
+    "n_entities_delisted": 0,
+    "survivor_rate": 1.0,
+    "passed": null,
+    "verdict": "NO ATTRITION: every entity is present on the final date, so a survivors-only universe is identical to the point-in-time one. This says nothing about a real universe -- a panel assembled without delisted entities in the first place would look exactly like this, and the absence would be invisible here. Check that the source universe was built from listing and delisting dates.",
+    "tail_dates": 1
   },
   "significance": {
     "demeaned_ic": {
