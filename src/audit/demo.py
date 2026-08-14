@@ -24,6 +24,7 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
+from .examples.pipelines import run_clean, run_leaky
 from .run import run_baseline_audit
 from .synthetic import generate_panel
 
@@ -85,6 +86,22 @@ def main(argv: list[str] | None = None) -> int:
             )
             (args.outdir / f"{slug}_report.json").write_text(result.to_json())
 
+    # ---- Part 2: two real pipelines, same modelling, different protocol ----
+    pipeline_rows = []
+    for label, builder in (("clean", run_clean), ("leaky", run_leaky)):
+        panel = builder()
+        res = run_baseline_audit(panel)
+        print(_banner(f"PIPELINE: {label}"))
+        print(res.to_text(title=f"AUDIT -- pipeline_{label}"))
+        pipeline_rows.append((label, res.raw.mean, res.demeaned.mean))
+
+        if args.outdir:
+            args.outdir.mkdir(parents=True, exist_ok=True)
+            (args.outdir / f"pipeline_{label}_report.txt").write_text(
+                res.to_text(title=f"AUDIT -- pipeline_{label}")
+            )
+            (args.outdir / f"pipeline_{label}_report.json").write_text(res.to_json())
+
     print(_banner("SIDE BY SIDE"))
     print()
     header = f"{'case':<16}{'raw IC':>10}{'demeaned IC':>14}{'increment':>12}{'naive incr.':>13}"
@@ -94,6 +111,28 @@ def main(argv: list[str] | None = None) -> int:
         naive_s = f"{naive:+.4f}" if isinstance(naive, float) else "n/a"
         print(f"{slug:<16}{raw:>+10.4f}{dm:>+14.4f}{inc:>+12.4f}{naive_s:>13}")
     print()
+    if pipeline_rows:
+        print()
+        print("Two pipelines, identical modelling, different protocol:")
+        print()
+        h2 = f"{'pipeline':<16}{'raw IC':>10}{'demeaned IC':>14}"
+        print(h2)
+        print("-" * len(h2))
+        for label, raw, dm in pipeline_rows:
+            print(f"{label:<16}{raw:>+10.4f}{dm:>+14.4f}")
+        if len(pipeline_rows) == 2:
+            (_, _, dm_clean), (_, _, dm_leaky) = pipeline_rows
+            print()
+            print(
+                f"The defective protocol inflates demeaned IC by "
+                f"{dm_leaky - dm_clean:+.4f} ({(dm_leaky / dm_clean - 1):.0%}) "
+                "without changing the model."
+            )
+            print("Both pass the alignment audit: these defects are about what the")
+            print("model was allowed to know, not about how it was scored. See")
+            print("src/audit/examples/pipelines.py for which module catches which.")
+        print()
+
     print("Raw IC barely separates the two cases; demeaned IC separates them decisively.")
     print("The 'naive incr.' column is the un-demeaned partial correlation, shown to")
     print("illustrate its upward bias -- it credits the zero-skill model with skill it")

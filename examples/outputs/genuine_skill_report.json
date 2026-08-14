@@ -1,7 +1,7 @@
 {
   "provenance": {
-    "git_commit": "596cbe4-dirty",
-    "generated_at": "2026-08-13T15:31:34+00:00",
+    "git_commit": "a5c73d3-dirty",
+    "generated_at": "2026-08-14T09:25:13+00:00",
     "python": "3.12.10"
   },
   "config": {
@@ -13,7 +13,8 @@
       "per_entity_train_mean",
       "ewma",
       "cross_sectional_mean"
-    ]
+    ],
+    "alignment_audit": true
   },
   "scope": {
     "n_rows": 31200,
@@ -150,6 +151,64 @@
       "description": "previous date's cross-sectional mean label"
     }
   ],
+  "alignment": {
+    "checks": [
+      {
+        "name": "shuffle",
+        "description": "labels permuted among entities within each date",
+        "baseline_ic": 0.8399420766399376,
+        "perturbed_ic": -0.022990111492785285,
+        "drop": 0.8629321881327229,
+        "drop_ratio": 1.0273710677583314,
+        "passed": true,
+        "verdict": "PASS: IC collapses to -0.0230 when the entity-label pairing is destroyed, so the score depends on that pairing.",
+        "tolerance": 0.05,
+        "seed": 0
+      },
+      {
+        "name": "shift+1",
+        "description": "predictions scored against the next date's labels",
+        "baseline_ic": 0.6880173970414611,
+        "perturbed_ic": 0.5905753972936362,
+        "drop": 0.09744199974782497,
+        "drop_ratio": 0.1416272323444649,
+        "passed": true,
+        "verdict": "PASS: demeaned IC falls from +0.6880 to +0.5906 (14%) against the next date's labels. For context, the demeaned label's own persistence is rho=+0.72, so a modest drop is expected even when alignment is correct.",
+        "offset": 1,
+        "basis": "demeaned IC",
+        "label_autocorrelation": 0.7175663702619326,
+        "expected_under_persistence": 0.4936981462721042,
+        "excess_over_expected": 0.096877251021532,
+        "tolerance": 0.05,
+        "diagnostic_only": false
+      },
+      {
+        "name": "shift-1",
+        "description": "predictions scored against the previous date's labels",
+        "baseline_ic": 0.6880173970414611,
+        "perturbed_ic": 0.5935535720963527,
+        "drop": 0.09446382494510841,
+        "drop_ratio": 0.13729859935419025,
+        "passed": null,
+        "verdict": "DIAGNOSTIC: demeaned IC +0.6880 -> +0.5936; the prediction is closer to the outcome it forecasts than to the one it was built from.",
+        "offset": -1,
+        "basis": "demeaned IC",
+        "label_autocorrelation": 0.7175663702619326,
+        "expected_under_persistence": 0.4936981462721042,
+        "excess_over_expected": 0.09985542582424856,
+        "tolerance": 0.05,
+        "diagnostic_only": true
+      }
+    ],
+    "summary": {
+      "n_checks": 3,
+      "n_gated": 2,
+      "failed": [],
+      "inconclusive": [],
+      "all_passed": true,
+      "any_failed": false
+    }
+  },
   "significance": {
     "demeaned_ic": {
       "n_obs": 104,

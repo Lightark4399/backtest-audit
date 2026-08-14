@@ -35,6 +35,30 @@ BASELINE DECOMPOSITION
       SE inflation              0.81x  [lag-1 autocorr -0.14]
 
 ==============================================================================
+ALIGNMENT AUDIT
+==============================================================================
+
+  Does the result depend on the prediction being paired with the
+  correct date's outcome?
+
+  [PASS] shuffle   labels permuted among entities within each date
+         +0.6028 -> -0.0184   (+103%)
+        PASS: IC collapses to -0.0184 when the entity-label pairing is
+        destroyed, so the score depends on that pairing.
+
+  [----] shift+1   predictions scored against the next date's labels
+         +0.0006 -> +0.0002
+        INCONCLUSIVE: demeaned IC under correct alignment is +0.0006, too
+        close to zero to test whether it is date-specific. There is no
+        signal here whose alignment could be verified.
+
+  [----] shift-1   predictions scored against the previous date's labels
+         +0.0006 -> +0.0038
+        INCONCLUSIVE: demeaned IC under correct alignment is +0.0006, too
+        close to zero to test whether it is date-specific. There is no
+        signal here whose alignment could be verified.
+
+==============================================================================
 READING
 ==============================================================================
 
@@ -51,6 +75,6 @@ READING
 PROVENANCE
 ==============================================================================
 
-  git_commit            596cbe4-dirty
-  generated_at          2026-08-13T15:31:33+00:00
+  git_commit            a5c73d3-dirty
+  generated_at          2026-08-14T09:25:08+00:00
   python                3.12.10

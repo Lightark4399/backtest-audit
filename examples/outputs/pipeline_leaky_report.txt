@@ -1,0 +1,81 @@
+==============================================================================
+                           AUDIT -- pipeline_leaky                            
+==============================================================================
+
+SCOPE
+  label                 synthetic_persistent_target
+  entities              96
+  dates                 255  (2021-01-11 .. 2021-12-31)
+  rows                  24,480
+  train boundary        2021-08-09
+
+==============================================================================
+BASELINE DECOMPOSITION
+==============================================================================
+
+  Raw IC (Pearson)                               +0.8787   [sd 0.024, hit 100%, n=104]
+  Raw IC (Spearman)                              +0.8642   [sd 0.028, hit 100%, n=104]
+
+  Free score available without any model:
+    й└йд persistence                              +0.7900   [hit 100%]
+    й└йд ewma                                     +0.7104   [hit 100%]
+    й└йд per_entity_train_mean                    +0.5034   [hit 100%]
+    й╕йд cross_sectional_mean                   undefined   [undefined (constant cross-section)]
+
+  After removing the per-entity level (training-period mean):
+    Demeaned IC                                  +0.8153   [sd 0.038, hit 100%, n=104]
+      t-stat (naive)          220.16
+      t-stat (Newey-West)     153.17   [maxlags=4, p=0.0000]
+      SE inflation              1.44x  [lag-1 autocorr +0.34]
+      note: lag-1 autocorrelation 0.34: the naive t-statistic is optimistic
+
+  Increment over strongest baseline (persistence), partial correlation:
+    Incremental IC                               +0.5507   [sd 0.073, hit 100%, n=104]
+      t-stat (naive)           76.81
+      t-stat (Newey-West)      63.61   [maxlags=4, p=0.0000]
+      SE inflation              1.21x  [lag-1 autocorr +0.20]
+
+==============================================================================
+ALIGNMENT AUDIT
+==============================================================================
+
+  Does the result depend on the prediction being paired with the
+  correct date's outcome?
+
+  [PASS] shuffle   labels permuted among entities within each date
+         +0.8642 -> -0.0030   (+100%)
+        PASS: IC collapses to -0.0030 when the entity-label pairing is
+        destroyed, so the score depends on that pairing.
+
+  [PASS] shift+1   predictions scored against the next date's labels
+         +0.8153 -> +0.6504   (+20%)
+        PASS: demeaned IC falls from +0.8153 to +0.6504 (20%) against the
+        next date's labels. For context, the demeaned label's own
+        persistence is rho=+0.72, so a modest drop is expected even when
+        alignment is correct.
+
+  [----] shift-1   predictions scored against the previous date's labels
+         +0.8153 -> +0.8530
+        DIAGNOSTIC: demeaned IC +0.8153 -> +0.8530; the prediction resembles
+        the label it was built from more than the one it forecasts, which is
+        normal for a model driven by lagged values, and is quantified
+        properly by the persistence baseline in the decomposition above.
+
+==============================================================================
+READING
+==============================================================================
+
+  Headline raw IC is +0.8787.
+  A naive predictor (persistence) reaches +0.7900 with no model at all.
+  -- that is 90% of the headline number, available for free.
+
+  Demeaned IC is +0.8153: the prediction contains real information
+  about deviations from each entity's typical level.
+
+==============================================================================
+PROVENANCE
+==============================================================================
+
+  git_commit            a5c73d3-dirty
+  generated_at          2026-08-14T09:25:22+00:00
+  python                3.12.10

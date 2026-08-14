@@ -1,7 +1,7 @@
 {
   "provenance": {
     "git_commit": "a5c73d3-dirty",
-    "generated_at": "2026-08-14T09:25:08+00:00",
+    "generated_at": "2026-08-14T09:25:18+00:00",
     "python": "3.12.10"
   },
   "config": {
@@ -17,10 +17,10 @@
     "alignment_audit": true
   },
   "scope": {
-    "n_rows": 31200,
+    "n_rows": 30600,
     "n_entities": 120,
-    "n_dates": 260,
-    "first_date": "2021-01-04",
+    "n_dates": 255,
+    "first_date": "2021-01-11",
     "last_date": "2021-12-31",
     "train_end": "2021-08-09",
     "label_name": "synthetic_persistent_target",
@@ -29,8 +29,8 @@
   "metrics": {
     "raw_ic": {
       "name": "raw_ic",
-      "mean": 0.6295369825586192,
-      "std": 0.04939248572004217,
+      "mean": 0.8644310628015646,
+      "std": 0.022520520400665437,
       "hit_rate": 1.0,
       "n_dates_used": 104,
       "n_dates_total": 104,
@@ -42,8 +42,8 @@
     },
     "rank_ic": {
       "name": "rank_ic",
-      "mean": 0.6027638805045221,
-      "std": 0.05223429360305731,
+      "mean": 0.8476591590227952,
+      "std": 0.026639251066151195,
       "hit_rate": 1.0,
       "n_dates_used": 104,
       "n_dates_total": 104,
@@ -55,9 +55,9 @@
     },
     "demeaned_ic": {
       "name": "demeaned_ic",
-      "mean": 0.0005622051745046366,
-      "std": 0.09847595916236532,
-      "hit_rate": 0.4807692307692308,
+      "mean": 0.7138461137792689,
+      "std": 0.04849131104441088,
+      "hit_rate": 1.0,
       "n_dates_used": 104,
       "n_dates_total": 104,
       "n_dates_undefined": 0,
@@ -73,9 +73,9 @@
     },
     "incremental_ic": {
       "name": "incremental_ic_vs_persistence",
-      "mean": -0.002213496548512548,
-      "std": 0.09700190044244188,
-      "hit_rate": 0.4519230769230769,
+      "mean": 0.0923157676247255,
+      "std": 0.10427931840813151,
+      "hit_rate": 0.8173076923076923,
       "n_dates_used": 104,
       "n_dates_total": 104,
       "n_dates_undefined": 0,
@@ -89,8 +89,7 @@
       "rows_before_demean": 12480,
       "rows_after_demean": 12480,
       "entities_before": 120,
-      "entities_dropped_no_train_history": 0,
-      "naive_undemeaned_mean": 0.21943765621394312
+      "entities_dropped_no_train_history": 0
     }
   },
   "baselines": [
@@ -110,8 +109,8 @@
     },
     {
       "name": "per_entity_train_mean",
-      "mean": 0.6548516991,
-      "std": 0.0492830058,
+      "mean": 0.6538058198,
+      "std": 0.0495165758,
       "hit_rate": 1.0,
       "n_dates_used": 104,
       "n_dates_total": 104,
@@ -156,46 +155,46 @@
       {
         "name": "shuffle",
         "description": "labels permuted among entities within each date",
-        "baseline_ic": 0.6027638805045221,
-        "perturbed_ic": -0.0183909673214486,
-        "drop": 0.6211548478259707,
-        "drop_ratio": 1.0305110639775812,
+        "baseline_ic": 0.8476591590227952,
+        "perturbed_ic": -0.019655211099061362,
+        "drop": 0.8673143701218565,
+        "drop_ratio": 1.0231876348999998,
         "passed": true,
-        "verdict": "PASS: IC collapses to -0.0184 when the entity-label pairing is destroyed, so the score depends on that pairing.",
+        "verdict": "PASS: IC collapses to -0.0197 when the entity-label pairing is destroyed, so the score depends on that pairing.",
         "tolerance": 0.05,
         "seed": 0
       },
       {
         "name": "shift+1",
         "description": "predictions scored against the next date's labels",
-        "baseline_ic": 0.0005622051745046366,
-        "perturbed_ic": 0.0002175852287476803,
-        "drop": 0.00034461994575695637,
-        "drop_ratio": 0.6129789645934933,
-        "passed": null,
-        "verdict": "INCONCLUSIVE: demeaned IC under correct alignment is +0.0006, too close to zero to test whether it is date-specific. There is no signal here whose alignment could be verified.",
+        "baseline_ic": 0.7138461137792689,
+        "perturbed_ic": 0.6117025386741393,
+        "drop": 0.10214357510512961,
+        "drop_ratio": 0.14308906798463544,
+        "passed": true,
+        "verdict": "PASS: demeaned IC falls from +0.7138 to +0.6117 (14%) against the next date's labels. For context, the demeaned label's own persistence is rho=+0.72, so a modest drop is expected even when alignment is correct.",
         "offset": 1,
         "basis": "demeaned IC",
-        "label_autocorrelation": 0.7175663702619326,
-        "expected_under_persistence": 0.0004034195264117685,
-        "excess_over_expected": -0.00018583429766408824,
+        "label_autocorrelation": 0.7178063077398642,
+        "expected_under_persistence": 0.512403243226348,
+        "excess_over_expected": 0.09929929544779126,
         "tolerance": 0.05,
         "diagnostic_only": false
       },
       {
         "name": "shift-1",
         "description": "predictions scored against the previous date's labels",
-        "baseline_ic": 0.0005622051745046366,
-        "perturbed_ic": 0.0037909951011555285,
-        "drop": -0.003228789926650892,
-        "drop_ratio": -5.743081126024506,
+        "baseline_ic": 0.7138461137792689,
+        "perturbed_ic": 0.966331061986142,
+        "drop": -0.25248494820687317,
+        "drop_ratio": -0.3536966067800784,
         "passed": null,
-        "verdict": "INCONCLUSIVE: demeaned IC under correct alignment is +0.0006, too close to zero to test whether it is date-specific. There is no signal here whose alignment could be verified.",
+        "verdict": "DIAGNOSTIC: demeaned IC +0.7138 -> +0.9663; the prediction resembles the label it was built from more than the one it forecasts, which is normal for a model driven by lagged values, and is quantified properly by the persistence baseline in the decomposition above.",
         "offset": -1,
         "basis": "demeaned IC",
-        "label_autocorrelation": 0.7175663702619326,
-        "expected_under_persistence": 0.0004034195264117685,
-        "excess_over_expected": 0.00338757557474376,
+        "label_autocorrelation": 0.7178063077398642,
+        "expected_under_persistence": 0.512403243226348,
+        "excess_over_expected": 0.45392781875979404,
         "tolerance": 0.05,
         "diagnostic_only": true
       }
@@ -204,38 +203,36 @@
       "n_checks": 3,
       "n_gated": 2,
       "failed": [],
-      "inconclusive": [
-        "shift+1"
-      ],
-      "all_passed": false,
+      "inconclusive": [],
+      "all_passed": true,
       "any_failed": false
     }
   },
   "significance": {
     "demeaned_ic": {
       "n_obs": 104,
-      "mean": 0.0005622051745046366,
-      "naive_se": 0.009656362257474365,
-      "naive_tstat": 0.05822121825115561,
-      "hac_se": 0.008080372586191422,
-      "hac_tstat": 0.06957664000115443,
-      "hac_pvalue": 0.9445306304502817,
-      "se_inflation": 0.8367926109997509,
+      "mean": 0.7138461137792689,
+      "naive_se": 0.0047549642549067,
+      "naive_tstat": 150.12649423024436,
+      "hac_se": 0.005504742523615768,
+      "hac_tstat": 129.67838381483134,
+      "hac_pvalue": 0.0,
+      "se_inflation": 1.1576832608016692,
       "maxlags": 4,
-      "lag1_autocorr": -0.07934727218444688,
+      "lag1_autocorr": 0.1283259948144096,
       "notes": []
     },
     "incremental_ic": {
       "n_obs": 104,
-      "mean": -0.002213496548512548,
-      "naive_se": 0.009511818907915304,
-      "naive_tstat": -0.23271012305234035,
-      "hac_se": 0.007662218150776238,
-      "hac_tstat": -0.28888456383720973,
-      "hac_pvalue": 0.7726697166278566,
-      "se_inflation": 0.8055471014487132,
+      "mean": 0.0923157676247255,
+      "naive_se": 0.01022542845052342,
+      "naive_tstat": 9.028058635528375,
+      "hac_se": 0.007802310271160665,
+      "hac_tstat": 11.831850364365566,
+      "hac_pvalue": 2.6718605805708847e-32,
+      "se_inflation": 0.7630301565272093,
       "maxlags": 4,
-      "lag1_autocorr": -0.14396549726499933,
+      "lag1_autocorr": -0.320860451167232,
       "notes": []
     }
   }

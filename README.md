@@ -235,15 +235,54 @@ then trust indefinitely.
 
 ---
 
+### The alignment audit is powerful in one direction and blind in another
+
+Shuffling labels within a date collapses the IC to zero, as it must. But two
+findings from testing it against panels of known construction shaped the module:
+
+**The shift test runs on demeaned series, because the level blinds it.** The
+per-entity level is constant in time, so shifting labels does not disturb it at
+all. Measured on the synthetic panels, a one-day shift moves the raw IC of a
+genuinely skilful model by 5% and that of a *zero-skill* model by 0.1% -- neither
+is usable. After demeaning, the same shift moves the skilful model's IC by 14%.
+The level does not merely inflate the headline number; it also blinds the check
+meant to validate it.
+
+**The backward shift is diagnostic, never a verdict.** A forecaster of a
+persistent target is usually built from lagged labels, so its prediction
+resembles the label it was *built from* more than the one it forecasts. On the
+clean example pipeline -- honest by construction -- scoring against the previous
+date raises the demeaned IC from 0.71 to 0.97. Gating on that would fail nearly
+every autoregressive model, so the backward shift is reported with its
+interpretation and the forward shift carries the verdict.
+
+### What the alignment audit cannot catch, stated plainly
+
+The example pipelines carry five switchable defects, and the alignment audit
+detects one class of them. A contemporaneous feature -- a same-day measurement
+whose timestamp was assumed available earlier than it is -- produces a prediction
+that genuinely matches the label it is scored against. The *pairing* is sound;
+what is wrong is that the prediction could not have been computed in time. That
+is a question about data vintage, which the point-in-time module addresses.
+
+The same reasoning explains a result worth seeing: an off-by-one in an
+autoregressive pipeline turns *into* contemporaneous leakage, and passes the
+alignment audit. The module detects misalignment when the prediction is not
+itself built from lagged labels. Both cases are covered in the tests.
+
+---
+
 ## Status
 
-Implemented: panel contract, baseline decomposition, demeaned IC, partial-correlation
-increment with the errors-in-variables correction, Newey-West inference, text and
-JSON reports, offline demo, PIT schema and SQL feature views, 42 tests.
+Implemented: panel contract, baseline decomposition, demeaned IC,
+partial-correlation increment with the errors-in-variables correction,
+Newey-West inference, alignment audit (shuffle / forward shift / backward
+diagnostic), leaky-vs-clean example pipelines with five switchable defects, text
+and JSON reports, offline demo, PIT schema and SQL feature views, 62 tests.
 
-Next: alignment audit as CI tests (shuffle / shift / future-shift), the
-leaky-vs-clean example pipelines on real public data, PIT-vs-restated comparison,
-group decomposition, HTML report.
+Next: point-in-time vs restated comparison, universe reconstruction for
+survivorship, group decomposition, effective sample size, validation-protocol
+comparison (random split vs walk-forward), HTML report.
 
 ---
 

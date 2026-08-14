@@ -20,6 +20,7 @@ from datetime import datetime, timezone
 
 import pandas as pd
 
+from .audits.alignment import alignment_summary, run_alignment_audit
 from .metrics.baselines import Baseline, default_baselines, evaluate_baselines, strongest_baseline
 from .metrics.ic import ICSeries, demeaned_ic, rank_ic, raw_ic
 from .metrics.partial import incremental_ic
@@ -65,6 +66,7 @@ class AuditResult:
     incremental: ICSeries | None = None
     demeaned_sig: SignificanceResult | None = None
     incremental_sig: SignificanceResult | None = None
+    alignment: list | None = None
     provenance: dict = field(default_factory=dict)
     config: dict = field(default_factory=dict)
 
@@ -78,6 +80,7 @@ class AuditResult:
             incremental=self.incremental,
             demeaned_sig=self.demeaned_sig,
             incremental_sig=self.incremental_sig,
+            alignment_checks=self.alignment,
             title=title,
             provenance=self.provenance,
         )
@@ -95,6 +98,10 @@ class AuditResult:
                 "incremental_ic": self.incremental.to_dict() if self.incremental else None,
             },
             "baselines": json.loads(self.baseline_table.reset_index().to_json(orient="records")),
+            "alignment": {
+                "checks": [c.to_dict() for c in self.alignment] if self.alignment else None,
+                "summary": alignment_summary(self.alignment) if self.alignment else None,
+            },
             "significance": {
                 "demeaned_ic": self.demeaned_sig.to_dict() if self.demeaned_sig else None,
                 "incremental_ic": (
@@ -114,6 +121,7 @@ def run_baseline_audit(
     demean_method: str = "spearman",
     maxlags: int | None = None,
     include_naive_increment: bool = False,
+    run_alignment: bool = True,
 ) -> AuditResult:
     """Run the baseline-decomposition audit (module 1).
 
@@ -163,6 +171,11 @@ def run_baseline_audit(
 
     dm_sig = newey_west_tstat(dm.values, maxlags=maxlags) if dm.n_dates_used else None
 
+    # The alignment audit is part of the default run rather than an opt-in extra:
+    # a decomposition of a number that was never correctly aligned would be a
+    # precise analysis of an artefact.
+    alignment = run_alignment_audit(panel, scope=scope) if run_alignment else None
+
     provenance = {
         "git_commit": _git_commit(),
         "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
@@ -173,6 +186,7 @@ def run_baseline_audit(
         "demean_method": demean_method,
         "maxlags": maxlags if maxlags is not None else "auto",
         "baselines": [b.name for b in baselines],
+        "alignment_audit": run_alignment,
     }
 
     return AuditResult(
@@ -184,6 +198,7 @@ def run_baseline_audit(
         incremental=inc,
         demeaned_sig=dm_sig,
         incremental_sig=inc_sig,
+        alignment=alignment,
         provenance=provenance,
         config=config,
     )

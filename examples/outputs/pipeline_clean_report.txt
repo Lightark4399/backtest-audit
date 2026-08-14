@@ -1,38 +1,38 @@
 ==============================================================================
-                            AUDIT -- genuine_skill                            
+                           AUDIT -- pipeline_clean                            
 ==============================================================================
 
 SCOPE
   label                 synthetic_persistent_target
   entities              120
-  dates                 260  (2021-01-04 .. 2021-12-31)
-  rows                  31,200
+  dates                 255  (2021-01-11 .. 2021-12-31)
+  rows                  30,600
   train boundary        2021-08-09
 
 ==============================================================================
 BASELINE DECOMPOSITION
 ==============================================================================
 
-  Raw IC (Pearson)                               +0.8577   [sd 0.023, hit 100%, n=104]
-  Raw IC (Spearman)                              +0.8399   [sd 0.025, hit 100%, n=104]
+  Raw IC (Pearson)                               +0.8644   [sd 0.023, hit 100%, n=104]
+  Raw IC (Spearman)                              +0.8477   [sd 0.027, hit 100%, n=104]
 
   Free score available without any model:
     й└йд persistence                              +0.8416   [hit 100%]
     й└йд ewma                                     +0.7913   [hit 100%]
-    й└йд per_entity_train_mean                    +0.6549   [hit 100%]
+    й└йд per_entity_train_mean                    +0.6538   [hit 100%]
     й╕йд cross_sectional_mean                   undefined   [undefined (constant cross-section)]
 
   After removing the per-entity level (training-period mean):
-    Demeaned IC                                  +0.6880   [sd 0.054, hit 100%, n=104]
-      t-stat (naive)          128.81
-      t-stat (Newey-West)     101.29   [maxlags=4, p=0.0000]
-      SE inflation              1.27x  [lag-1 autocorr +0.18]
+    Demeaned IC                                  +0.7138   [sd 0.048, hit 100%, n=104]
+      t-stat (naive)          150.13
+      t-stat (Newey-West)     129.68   [maxlags=4, p=0.0000]
+      SE inflation              1.16x  [lag-1 autocorr +0.13]
 
   Increment over strongest baseline (persistence), partial correlation:
-    Incremental IC                               +0.4667   [sd 0.080, hit 100%, n=104]
-      t-stat (naive)           59.36
-      t-stat (Newey-West)      63.57   [maxlags=4, p=0.0000]
-      SE inflation              0.93x  [lag-1 autocorr -0.14]
+    Incremental IC                               +0.0923   [sd 0.104, hit 82%, n=104]
+      t-stat (naive)            9.03
+      t-stat (Newey-West)      11.83   [maxlags=4, p=0.0000]
+      SE inflation              0.76x  [lag-1 autocorr -0.32]
 
 ==============================================================================
 ALIGNMENT AUDIT
@@ -42,31 +42,33 @@ ALIGNMENT AUDIT
   correct date's outcome?
 
   [PASS] shuffle   labels permuted among entities within each date
-         +0.8399 -> -0.0230   (+103%)
-        PASS: IC collapses to -0.0230 when the entity-label pairing is
+         +0.8477 -> -0.0197   (+102%)
+        PASS: IC collapses to -0.0197 when the entity-label pairing is
         destroyed, so the score depends on that pairing.
 
   [PASS] shift+1   predictions scored against the next date's labels
-         +0.6880 -> +0.5906   (+14%)
-        PASS: demeaned IC falls from +0.6880 to +0.5906 (14%) against the
+         +0.7138 -> +0.6117   (+14%)
+        PASS: demeaned IC falls from +0.7138 to +0.6117 (14%) against the
         next date's labels. For context, the demeaned label's own
         persistence is rho=+0.72, so a modest drop is expected even when
         alignment is correct.
 
   [----] shift-1   predictions scored against the previous date's labels
-         +0.6880 -> +0.5936
-        DIAGNOSTIC: demeaned IC +0.6880 -> +0.5936; the prediction is closer
-        to the outcome it forecasts than to the one it was built from.
+         +0.7138 -> +0.9663
+        DIAGNOSTIC: demeaned IC +0.7138 -> +0.9663; the prediction resembles
+        the label it was built from more than the one it forecasts, which is
+        normal for a model driven by lagged values, and is quantified
+        properly by the persistence baseline in the decomposition above.
 
 ==============================================================================
 READING
 ==============================================================================
 
-  Headline raw IC is +0.8577.
+  Headline raw IC is +0.8644.
   A naive predictor (persistence) reaches +0.8416 with no model at all.
-  -- that is 98% of the headline number, available for free.
+  -- that is 97% of the headline number, available for free.
 
-  Demeaned IC is +0.6880: the prediction contains real information
+  Demeaned IC is +0.7138: the prediction contains real information
   about deviations from each entity's typical level.
 
 ==============================================================================
@@ -74,5 +76,5 @@ PROVENANCE
 ==============================================================================
 
   git_commit            a5c73d3-dirty
-  generated_at          2026-08-14T09:25:13+00:00
+  generated_at          2026-08-14T09:25:18+00:00
   python                3.12.10

@@ -214,6 +214,46 @@ def format_interpretation(
     return "\n".join(out)
 
 
+def format_alignment_audit(checks: list) -> str:
+    """Alignment section: each perturbation, its effect, and the verdict.
+
+    Verdicts are spelled out rather than reduced to PASS/FAIL flags, because the
+    right reading of a shift test depends on how persistent the label is, and a
+    bare flag would invite the reader to skip exactly the context that makes it
+    interpretable.
+    """
+    out = [_header("ALIGNMENT AUDIT"), ""]
+    out.append("  Does the result depend on the prediction being paired with the")
+    out.append("  correct date's outcome?")
+    out.append("")
+
+    for c in checks:
+        mark = {True: "PASS", False: "FAIL", None: "----"}[c.passed]
+        out.append(f"  [{mark}] {c.name:<10}{c.description}")
+        # The ratio is only shown when the check reached a verdict. On an
+        # inconclusive check the baseline is near zero, so a percentage computed
+        # from it is arithmetically valid but meaningless, and printing it would
+        # invite the reader to draw a conclusion the check explicitly declined.
+        show_ratio = c.passed is not None and np.isfinite(c.drop_ratio)
+        out.append(
+            f"         {c.baseline_ic:+.4f} -> {c.perturbed_ic:+.4f}"
+            + (f"   ({c.drop_ratio:+.0%})" if show_ratio else "")
+        )
+        # Wrap the verdict so long explanations stay readable in a terminal.
+        words, line = c.verdict.split(), "        "
+        for w in words:
+            if len(line) + len(w) + 1 > WIDTH - 2:
+                out.append(line)
+                line = "        " + w
+            else:
+                line = f"{line} {w}" if line.strip() else line + w
+        if line.strip():
+            out.append(line)
+        out.append("")
+
+    return "\n".join(out).rstrip()
+
+
 def render_report(
     scope: dict,
     raw: ICSeries,
@@ -223,6 +263,7 @@ def render_report(
     incremental: ICSeries | None = None,
     demeaned_sig: SignificanceResult | None = None,
     incremental_sig: SignificanceResult | None = None,
+    alignment_checks: list | None = None,
     title: str = "BACKTEST CREDIBILITY AUDIT",
     provenance: dict | None = None,
 ) -> str:
@@ -235,6 +276,8 @@ def render_report(
             raw, rank, baseline_table, demeaned, incremental, demeaned_sig, incremental_sig
         )
     )
+    if alignment_checks:
+        parts.append(format_alignment_audit(alignment_checks))
     parts.append(format_interpretation(raw, baseline_table, demeaned))
 
     if provenance:
