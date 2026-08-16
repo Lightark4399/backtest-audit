@@ -7,6 +7,11 @@ number is *free* — obtainable by a naive baseline with no model at all — and
 much is attributable to the model. It also checks whether the result depends on
 correct time alignment at all, which is what a leak looks like from the outside.
 
+**Documentation:** [SPEC.md](SPEC.md) — the research question and what would
+count as failure · [PLAN.md](PLAN.md) — module breakdown and verification ·
+[AI_NOTES.md](AI_NOTES.md) — how it was built with AI assistance, and the nine
+things that went wrong
+
 ---
 
 ## The problem
@@ -375,8 +380,10 @@ bitemporal store with as-of reconstruction, point-in-time vs restated
 comparison, survivorship audit via universe reconstruction, within/between group
 decomposition, text and JSON reports, offline demo, 95 tests.
 
-Next: effective sample size, validation-protocol comparison (random split vs
-walk-forward), spurious-regression demonstration, HTML report.
+Possible extensions are listed with their rationale and cost in
+[PLAN.md](PLAN.md#roadmap). None of them blocks the framework being usable: the
+six channels of inflation it enumerates are each implemented, tested and wired
+into the report.
 
 ---
 
