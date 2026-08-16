@@ -66,6 +66,23 @@ cross-sectional-mean baseline turned out to be *undefined* rather than ~0.
 **Surprises.** Three, in `AI_NOTES.md`: the level blinds the shift test; the
 backward shift cannot be a verdict; the persistence benchmark cannot be a gate.
 
+### M4 — Validation protocol and effective sample size
+
+**Modules.** `audits/protocol.py`, additions to `metrics/significance.py`.
+
+**Verification.**
+- Stationary relationship → inflation −0.0002 (the control)
+- Drifting relationship → inflation +0.094, monotone in the drift parameter
+- The embargo can only remove information, never add it
+- Random K-fold scores every row exactly once
+- `n_eff` falls as autocorrelation rises; negative `ρ` awards no bonus
+
+**Surprise.** The first attempt found no inflation at all on a stationary panel
+with a low-capacity model. That turned out to be correct behaviour, not a bug,
+and it changed the module's claim from "random splitting inflates" to "random
+splitting inflates when the relationship drifts" — a conditional the module now
+measures rather than assumes.
+
 ### M3 — Point-in-time, survivorship, grouping
 
 **Modules.** `ingest/duckdb_store.py`, `sql/duckdb/001_schema.sql`,
@@ -100,19 +117,6 @@ Ordered by expected value, not by ease. Nothing here blocks the project being
 complete — these are extensions, and the repository is usable without them.
 
 ### Next
-
-**Validation-protocol comparison.** Same signal scored under random k-fold and
-under purged walk-forward with an embargo. For a persistent target, random
-splitting places near-duplicate observations on both sides of the boundary, so
-the model is effectively evaluated on data it trained on. This quantifies an
-error that a large share of public factor repositories make.
-*Why first: largest gap between how common the mistake is and how rarely it is measured.*
-
-**Effective sample size.** `n_eff ≈ n · (1−ρ)/(1+ρ)` reported alongside the HAC
-statistic. The machinery already exists in `significance.py`; what is missing is
-the sentence a reader understands without knowing what HAC means — "you have 104
-days of evidence, worth about 61 independent observations."
-*Half a day. Highest ratio of clarity gained to work done.*
 
 **A thin PnL layer.** Signal → position → return → Sharpe, drawdown, equity
 curve, sitting on top of the existing panel contract without changing it. Not

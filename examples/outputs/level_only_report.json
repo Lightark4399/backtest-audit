@@ -1,7 +1,7 @@
 {
   "provenance": {
-    "git_commit": "a5dec29-dirty",
-    "generated_at": "2026-08-14T21:14:41+00:00",
+    "git_commit": "3cf3757-dirty",
+    "generated_at": "2026-08-16T12:57:44+00:00",
     "python": "3.12.10"
   },
   "config": {
@@ -16,7 +16,8 @@
     ],
     "alignment_audit": true,
     "group_column": "group",
-    "survivorship_audit": true
+    "survivorship_audit": true,
+    "protocol_audit": true
   },
   "scope": {
     "n_rows": 31200,
@@ -258,6 +259,7 @@
     "material_gap_threshold": 0.02,
     "n_groups_too_small": 0
   },
+  "protocol": null,
   "survivorship": {
     "survivors_ic": 0.6027638805045221,
     "pit_ic": 0.6027638805045221,
@@ -284,6 +286,8 @@
       "se_inflation": 0.8367926109997509,
       "maxlags": 4,
       "lag1_autocorr": -0.07934727218444688,
+      "effective_n": 104.0,
+      "information_loss": 0.0,
       "notes": []
     },
     "incremental_ic": {
@@ -297,6 +301,8 @@
       "se_inflation": 0.8055471014487132,
       "maxlags": 4,
       "lag1_autocorr": -0.14396549726499933,
+      "effective_n": 104.0,
+      "information_loss": 0.0,
       "notes": []
     }
   }

@@ -27,6 +27,7 @@ BASELINE DECOMPOSITION
       t-stat (naive)          128.81
       t-stat (Newey-West)     101.29   [maxlags=4, p=0.0000]
       SE inflation              1.27x  [lag-1 autocorr +0.18]
+      effective sample            72 of 104 days  [30% lost to serial dependence]
 
   Increment over strongest baseline (persistence), partial correlation:
     Incremental IC                               +0.4667   [sd 0.080, hit 100%, n=104]
@@ -114,6 +115,6 @@ READING
 PROVENANCE
 ==============================================================================
 
-  git_commit            a5dec29-dirty
-  generated_at          2026-08-14T21:14:45+00:00
+  git_commit            3cf3757-dirty
+  generated_at          2026-08-16T12:57:45+00:00
   python                3.12.10

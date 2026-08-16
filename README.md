@@ -356,6 +356,48 @@ sign of heterogeneous group quality. And a group whose typical cross-section is
 below three is reported as `undefined` rather than averaged in, for the same
 reason degenerate correlations are excluded elsewhere.
 
+### The validation protocol audit only fires when it should
+
+`train_test_split(shuffle=True)` is the most common way to inflate a backtest and
+the most innocuous-looking line in the pipeline. Random assignment scatters
+observations across folds without regard to time, and for a persistent target
+adjacent dates are near-duplicates -- so the model is effectively evaluated on
+data it trained on.
+
+The audit scores the same model under shuffled K-fold, expanding-window
+walk-forward, and walk-forward with an embargo. On a panel where the
+feature-to-label relationship drifts, random splitting reads **+0.695** against
+**+0.602** for the purged walk-forward: **+0.094 of unearned score**, with the
+embargo alone accounting for +0.015 of it.
+
+The conditional half is what makes this a measurement rather than a maxim. With
+a *stationary* relationship the same audit reports an inflation of **-0.0002**.
+Testing revealed why, and the finding shaped the module: with a low-capacity
+model and a stable relationship there is nothing for random assignment to
+exploit -- training on a random subset and training on the past yield the same
+coefficients. Random splitting leaks when the relationship *drifts*, because the
+random folds hand the model rows drawn from the test period's regime. A module
+that condemned shuffling unconditionally would be repeating a rule of thumb; this
+one measures whether the rule applies to your data.
+
+### Effective sample size
+
+The HAC correction already tells you the standard error is understated. It does
+not tell you in a form anyone acts on. The report now also states it as a count:
+
+```
+    t-stat (naive)            4.21
+    t-stat (Newey-West)       2.35   [maxlags=4, p=0.0210]
+    SE inflation              1.79x  [lag-1 autocorr +0.75]
+    effective sample            15 of 104 days  [85% lost to serial dependence]
+```
+
+"104 days of evidence, worth about 15 independent observations" needs no
+knowledge of what a HAC estimator is, and it is the phrasing that stops a reader
+over-reading a t-statistic. Negative autocorrelation is capped at `n_eff = n`
+rather than awarding a bonus, since claiming more information than observations
+would be the same overstatement in the opposite direction.
+
 ### Postgres is the reference, DuckDB is what runs
 
 ``sql/001_schema.sql`` and ``sql/002_pit_views.sql`` are the reference design.
@@ -378,7 +420,8 @@ Newey-West inference, alignment audit (shuffle / forward shift / backward
 diagnostic), leaky-vs-clean example pipelines with five switchable defects,
 bitemporal store with as-of reconstruction, point-in-time vs restated
 comparison, survivorship audit via universe reconstruction, within/between group
-decomposition, text and JSON reports, offline demo, 95 tests.
+decomposition, validation-protocol comparison (random vs walk-forward vs purged),
+effective sample size, text and JSON reports, offline demo, 110 tests.
 
 Possible extensions are listed with their rationale and cost in
 [PLAN.md](PLAN.md#roadmap). None of them blocks the framework being usable: the

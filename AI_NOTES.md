@@ -232,6 +232,33 @@ concluding the module is wrong. A test that cannot fail is not evidence.
 
 ---
 
+## Incident 10 — the module found nothing, and that was the right answer
+
+**What happened.** The validation-protocol audit was built on the premise that
+random K-fold inflates a backtest on panel data. On the first stationary test
+panel it reported an inflation of **+0.0015** — essentially nothing.
+
+**The temptation.** Assume the module is broken and adjust until it produces the
+expected number.
+
+**Diagnosis.** The module was correct. With a low-capacity model and a stable
+relationship, there is nothing for random assignment to exploit: training on a
+random subset and training on the past yield the same coefficients. Random
+splitting leaks when the relationship **drifts**, because the random folds hand
+the model rows drawn from the test period's regime.
+
+**The fix.** A generator with a drifting feature-to-label relationship, and a
+claim narrowed to match what is actually true. Stationary → −0.0002. Drift 1.0 →
++0.070. Drift 2.0 → +0.093.
+
+**Constraint added.** When a module reports nothing, establish whether the
+scenario contains the effect before concluding the module is wrong. Incident 9
+was the same lesson from the other direction, and the difference matters: there
+the fixture was diluted, here the premise was too broad. Both were found by
+asking what the data should contain rather than what the output should say.
+
+---
+
 ## Workflow constraints
 
 The rules that emerged, applied to every subsequent session:

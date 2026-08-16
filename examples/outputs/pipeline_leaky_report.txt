@@ -27,13 +27,15 @@ BASELINE DECOMPOSITION
       t-stat (naive)          220.16
       t-stat (Newey-West)     153.17   [maxlags=4, p=0.0000]
       SE inflation              1.44x  [lag-1 autocorr +0.34]
-      note: lag-1 autocorrelation 0.34: the naive t-statistic is optimistic
+      effective sample            51 of 104 days  [51% lost to serial dependence]
+      note: lag-1 autocorrelation 0.34: 104 observations carry about 51 independent observations' worth of information, so the naive t-statistic is optimistic
 
   Increment over strongest baseline (persistence), partial correlation:
     Incremental IC                               +0.5507   [sd 0.073, hit 100%, n=104]
       t-stat (naive)           76.81
       t-stat (Newey-West)      63.61   [maxlags=4, p=0.0000]
       SE inflation              1.21x  [lag-1 autocorr +0.20]
+      effective sample            69 of 104 days  [33% lost to serial dependence]
 
 ==============================================================================
 ALIGNMENT AUDIT
@@ -94,6 +96,6 @@ READING
 PROVENANCE
 ==============================================================================
 
-  git_commit            a5dec29-dirty
-  generated_at          2026-08-14T21:14:52+00:00
+  git_commit            3cf3757-dirty
+  generated_at          2026-08-16T12:57:49+00:00
   python                3.12.10

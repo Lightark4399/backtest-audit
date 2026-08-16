@@ -42,6 +42,7 @@ import pandas as pd
 
 from .panel import DATE as DATE_COL
 from .panel import ENTITY as ENTITY_COL
+from .panel import LABEL as LABEL_COL
 from .panel import PRED as PRED_COL
 from .panel import Panel
 
@@ -226,6 +227,61 @@ def generate_panel_with_delisting(
         data=data, train_end=panel.train_end, label_name="synthetic_with_delisting"
     )
     return out, meta
+
+
+def generate_drifting_panel(
+    spec: SyntheticSpec | None = None,
+    *,
+    drift: float = 1.5,
+    noise_sd: float = 0.5,
+    seed: int = 1,
+) -> Panel:
+    """Panel whose feature-to-label relationship changes over time.
+
+    Two competing features, with the true weight shifting from the first to the
+    second across the sample:
+
+        label = (1 - drift*t) * f_a + (drift*t) * f_b + noise
+
+    where ``t`` runs from 0 to 1. ``drift=0`` gives a stationary relationship.
+
+    This is the setting where random splitting leaks. With a stationary
+    relationship and a low-capacity model there is nothing for random assignment
+    to exploit -- training on a random subset and training on the past yield the
+    same coefficients. Once the relationship drifts, a random split hands the
+    model training rows drawn from the *test period's* regime, so it fits a
+    relationship that a forecaster standing at the fold boundary could not have
+    known. That is the mechanism the protocol audit exists to quantify, and the
+    stationary case is the control that shows the audit does not flag splitting
+    per se.
+
+    Features are carried on the panel as ``f_a`` and ``f_b`` so the audit can
+    refit under each protocol. ``prediction`` is filled with the label mean,
+    since this panel is an input to refitting rather than a finished result.
+    """
+    spec = spec or SyntheticSpec()
+    rng = np.random.default_rng(seed)
+
+    base, _ = generate_panel(spec, skill=0.3, level_leak=1.0)
+    d = base.data.sort_values([ENTITY_COL, DATE_COL], kind="mergesort").copy()
+
+    dates = pd.DatetimeIndex(sorted(d[DATE_COL].unique()))
+    position = d[DATE_COL].map({dt: i / max(1, len(dates) - 1) for i, dt in enumerate(dates)})
+
+    d["f_a"] = rng.normal(size=len(d))
+    d["f_b"] = rng.normal(size=len(d))
+    weight_a = 1.0 - drift * position
+    weight_b = drift * position
+    d[LABEL_COL] = (
+        weight_a * d["f_a"] + weight_b * d["f_b"] + rng.normal(0.0, noise_sd, len(d))
+    )
+    d[PRED_COL] = d[LABEL_COL].mean()
+
+    return Panel(
+        data=d.reset_index(drop=True),
+        train_end=base.train_end,
+        label_name="synthetic_drifting_relationship",
+    )
 
 
 def generate_perfect_panel(n_entities: int = 50, n_dates: int = 30) -> Panel:

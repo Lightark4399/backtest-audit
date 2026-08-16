@@ -97,6 +97,11 @@ def format_significance(sig: SignificanceResult, indent: int = 4) -> str:
             f"{pad}SE inflation          {sig.se_inflation:>8.2f}x  "
             f"[lag-1 autocorr {sig.lag1_autocorr:+.2f}]"
         )
+    if np.isfinite(sig.effective_n) and sig.information_loss > 0.01:
+        lines.append(
+            f"{pad}effective sample      {sig.effective_n:>8.0f} of {sig.n_obs} days"
+            f"  [{sig.information_loss:.0%} lost to serial dependence]"
+        )
     for n in sig.notes:
         lines.append(f"{pad}note: {n}")
     return "\n".join(lines)
@@ -349,6 +354,26 @@ def format_pit(result) -> str:
     return "\n".join(out)
 
 
+def format_protocol_comparison(comp) -> str:
+    """Random vs ordered vs purged splitting, scored on the same model."""
+    mark = {True: "PASS", False: "FAIL", None: "----"}[comp.passed]
+    out = [_header("VALIDATION PROTOCOL"), ""]
+    out.append("  Does the splitting scheme itself inflate the score?")
+    out.append("")
+    for r in comp.results:
+        label = r.name.replace("_", " ")
+        value = "undefined" if not np.isfinite(r.ic) else f"{r.ic:+.4f}"
+        out.append(f"  {label:<30}{value:>12}   [{r.description}]")
+    out.append("")
+    out.append(f"  {'Inflation from random splitting':<30}{comp.inflation:>+12.4f}")
+    if np.isfinite(comp.embargo_effect):
+        out.append(f"  {'Removed by the embargo alone':<30}{comp.embargo_effect:>+12.4f}")
+    out.append("")
+    out.append(f"  [{mark}]")
+    out.extend(_wrap(comp.verdict))
+    return "\n".join(out)
+
+
 def render_report(
     scope: dict,
     raw: ICSeries,
@@ -361,6 +386,7 @@ def render_report(
     alignment_checks: list | None = None,
     group_result=None,
     survivorship_result=None,
+    protocol_result=None,
     pit_result=None,
     title: str = "BACKTEST CREDIBILITY AUDIT",
     provenance: dict | None = None,
@@ -376,6 +402,8 @@ def render_report(
     )
     if alignment_checks:
         parts.append(format_alignment_audit(alignment_checks))
+    if protocol_result is not None:
+        parts.append(format_protocol_comparison(protocol_result))
     if group_result is not None:
         parts.append(format_group_decomposition(group_result))
     if survivorship_result is not None:

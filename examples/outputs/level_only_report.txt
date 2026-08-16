@@ -116,6 +116,6 @@ READING
 PROVENANCE
 ==============================================================================
 
-  git_commit            a5dec29-dirty
-  generated_at          2026-08-14T21:14:41+00:00
+  git_commit            3cf3757-dirty
+  generated_at          2026-08-16T12:57:44+00:00
   python                3.12.10

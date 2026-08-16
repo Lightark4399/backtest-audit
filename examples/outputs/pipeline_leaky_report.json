@@ -1,7 +1,7 @@
 {
   "provenance": {
-    "git_commit": "a5dec29-dirty",
-    "generated_at": "2026-08-14T21:14:52+00:00",
+    "git_commit": "3cf3757-dirty",
+    "generated_at": "2026-08-16T12:57:49+00:00",
     "python": "3.12.10"
   },
   "config": {
@@ -16,7 +16,8 @@
     ],
     "alignment_audit": true,
     "group_column": "group",
-    "survivorship_audit": true
+    "survivorship_audit": true,
+    "protocol_audit": true
   },
   "scope": {
     "n_rows": 24480,
@@ -211,6 +212,7 @@
     }
   },
   "grouping": null,
+  "protocol": null,
   "survivorship": {
     "survivors_ic": 0.8641896051588129,
     "pit_ic": 0.8641896051588129,
@@ -237,8 +239,10 @@
       "se_inflation": 1.4373650093761638,
       "maxlags": 4,
       "lag1_autocorr": 0.34011847537253437,
+      "effective_n": 51.21015777517647,
+      "information_loss": 0.5075946367771493,
       "notes": [
-        "lag-1 autocorrelation 0.34: the naive t-statistic is optimistic"
+        "lag-1 autocorrelation 0.34: 104 observations carry about 51 independent observations' worth of information, so the naive t-statistic is optimistic"
       ]
     },
     "incremental_ic": {
@@ -252,6 +256,8 @@
       "se_inflation": 1.2074173733810343,
       "maxlags": 4,
       "lag1_autocorr": 0.1996077194368035,
+      "effective_n": 69.3900146104867,
+      "information_loss": 0.3327883210530125,
       "notes": []
     }
   }

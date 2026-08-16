@@ -50,6 +50,41 @@ class SignificanceResult:
     notes: list[str] = field(default_factory=list)
 
     @property
+    def effective_n(self) -> float:
+        """Independent-observation equivalent of the sample, given serial dependence.
+
+        For an AR(1)-like series with lag-1 autocorrelation rho,
+
+            n_eff = n * (1 - rho) / (1 + rho)
+
+        This is the same information the HAC correction uses, restated as a
+        count. The restatement matters for communication: "the standard error is
+        1.27x larger" requires knowing what a HAC estimator is, whereas "104 days
+        of evidence, worth about 61 independent observations" does not, and it is
+        the second phrasing that stops a reader over-reading a t-statistic.
+
+        Returns n unchanged when rho is non-positive: negative autocorrelation
+        would formally imply MORE independent information than observations, and
+        claiming a bonus from it would be the same overstatement this framework
+        exists to prevent, in the opposite direction.
+        """
+        if not np.isfinite(self.lag1_autocorr) or self.n_obs <= 0:
+            return float(self.n_obs)
+        rho = self.lag1_autocorr
+        if rho <= 0.0:
+            return float(self.n_obs)
+        # Guard the pole at rho -> 1, where the formula diverges.
+        rho = min(rho, 0.99)
+        return float(self.n_obs * (1.0 - rho) / (1.0 + rho))
+
+    @property
+    def information_loss(self) -> float:
+        """Share of the nominal sample lost to serial dependence."""
+        if self.n_obs <= 0:
+            return float("nan")
+        return 1.0 - self.effective_n / self.n_obs
+
+    @property
     def se_inflation(self) -> float:
         """How much larger the HAC standard error is than the naive one.
 
@@ -73,6 +108,8 @@ class SignificanceResult:
             "se_inflation": self.se_inflation,
             "maxlags": self.maxlags,
             "lag1_autocorr": self.lag1_autocorr,
+            "effective_n": self.effective_n,
+            "information_loss": self.information_loss,
             "notes": list(self.notes),
         }
 
@@ -148,8 +185,11 @@ def newey_west_tstat(
 
     ac1 = _lag1_autocorr(x)
     if np.isfinite(ac1) and ac1 > 0.2:
+        n_eff = n * (1.0 - min(ac1, 0.99)) / (1.0 + min(ac1, 0.99))
         notes.append(
-            f"lag-1 autocorrelation {ac1:.2f}: the naive t-statistic is optimistic"
+            f"lag-1 autocorrelation {ac1:.2f}: {n} observations carry about "
+            f"{n_eff:.0f} independent observations' worth of information, so the "
+            "naive t-statistic is optimistic"
         )
 
     return SignificanceResult(

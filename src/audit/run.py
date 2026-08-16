@@ -22,6 +22,7 @@ import pandas as pd
 
 from .audits.alignment import alignment_summary, run_alignment_audit
 from .audits.grouping import decompose_by_group
+from .audits.protocol import compare_protocols
 from .audits.survivorship import run_survivorship_audit
 from .metrics.baselines import Baseline, default_baselines, evaluate_baselines, strongest_baseline
 from .metrics.ic import ICSeries, demeaned_ic, rank_ic, raw_ic
@@ -71,6 +72,7 @@ class AuditResult:
     alignment: list | None = None
     grouping: object = None
     survivorship: object = None
+    protocol: object = None
     provenance: dict = field(default_factory=dict)
     config: dict = field(default_factory=dict)
 
@@ -87,6 +89,7 @@ class AuditResult:
             alignment_checks=self.alignment,
             group_result=self.grouping,
             survivorship_result=self.survivorship,
+            protocol_result=self.protocol,
             title=title,
             provenance=self.provenance,
         )
@@ -109,6 +112,7 @@ class AuditResult:
                 "summary": alignment_summary(self.alignment) if self.alignment else None,
             },
             "grouping": self.grouping.to_dict() if self.grouping is not None else None,
+            "protocol": self.protocol.to_dict() if self.protocol is not None else None,
             "survivorship": (
                 self.survivorship.to_dict() if self.survivorship is not None else None
             ),
@@ -134,6 +138,7 @@ def run_baseline_audit(
     run_alignment: bool = True,
     group_column: str | None = "group",
     run_survivorship: bool = True,
+    run_protocol: bool = True,
 ) -> AuditResult:
     """Run the baseline-decomposition audit (module 1).
 
@@ -200,6 +205,17 @@ def run_baseline_audit(
     # be answered from the data.
     survivorship = run_survivorship_audit(panel, scope=scope) if run_survivorship else None
 
+    # The protocol audit refits the model under different splits, so it needs
+    # feature columns. Panels carrying only finished predictions skip it rather
+    # than failing: not every caller can supply features, and a missing input is
+    # not an audit finding.
+    protocol = None
+    if run_protocol and any(c.startswith("f_") for c in panel.data.columns):
+        try:
+            protocol = compare_protocols(panel)
+        except Exception:  # a protocol that cannot be scored is omitted, not fatal
+            protocol = None
+
     provenance = {
         "git_commit": _git_commit(),
         "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
@@ -213,6 +229,7 @@ def run_baseline_audit(
         "alignment_audit": run_alignment,
         "group_column": group_column,
         "survivorship_audit": run_survivorship,
+        "protocol_audit": run_protocol,
     }
 
     return AuditResult(
@@ -227,6 +244,7 @@ def run_baseline_audit(
         alignment=alignment,
         grouping=grouping,
         survivorship=survivorship,
+        protocol=protocol,
         provenance=provenance,
         config=config,
     )
