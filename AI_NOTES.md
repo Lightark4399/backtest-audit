@@ -287,6 +287,35 @@ works; only the demo proves anyone will see it.
 
 ---
 
+## Incident 12 — the PnL layer reproduced the deception before it exposed it
+
+**What happened.** A thin PnL layer was added so findings could be stated in
+Sharpe units. Its first run reported annualised Sharpes of **147 to 223**, hit
+rates of **100%**, and **zero drawdown** — on every panel, including one built
+with exactly zero skill.
+
+**The temptation.** Treat it as a bug in the position construction and adjust
+until the numbers look plausible.
+
+**Diagnosis.** The numbers were correct. On a sign-constant, persistent target, a
+long-short book built from prediction ranks is long the high-level names and
+short the low-level ones. Because the level barely moves, that book wins every
+single day. The absurd Sharpe *is* the level effect, in different units — exactly
+what raw IC reports.
+
+**The fix.** Report raw and demeaned Sharpe as a pair, mirroring the raw/demeaned
+IC decomposition. The zero-skill panel now shows Sharpe 147 raw against −4.5
+demeaned, with the hit rate falling from 100% to 37.5%. A test asserts the two
+metrics order panels identically, since they are meant to be the same information
+in different units and disagreement would mean one is measuring something else.
+
+**Constraint added.** When a new presentation layer makes results look better,
+the first hypothesis is that it is reproducing a known bias rather than revealing
+a new result. This one would have shipped a demo whose headline table was the
+very deception the project exists to expose.
+
+---
+
 ## Workflow constraints
 
 The rules that emerged, applied to every subsequent session:

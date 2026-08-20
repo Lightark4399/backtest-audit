@@ -99,7 +99,7 @@ def main(argv: list[str] | None = None) -> int:
     print(result.to_text())
     if args.json:
         args.json.parent.mkdir(parents=True, exist_ok=True)
-        args.json.write_text(result.to_json())
+        args.json.write_text(result.to_json(), encoding="utf-8")
         print(f"JSON written to {args.json}")
     return 0
 

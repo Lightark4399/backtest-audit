@@ -17,10 +17,10 @@ BASELINE DECOMPOSITION
   Raw IC (Spearman)                              +0.8399   [sd 0.025, hit 100%, n=104]
 
   Free score available without any model:
-    ©À©¤ persistence                              +0.8416   [hit 100%]
-    ©À©¤ ewma                                     +0.7913   [hit 100%]
-    ©À©¤ per_entity_train_mean                    +0.6549   [hit 100%]
-    ©¸©¤ cross_sectional_mean                   undefined   [undefined (constant cross-section)]
+    â”œâ”€ persistence                              +0.8416   [hit 100%]
+    â”œâ”€ ewma                                     +0.7913   [hit 100%]
+    â”œâ”€ per_entity_train_mean                    +0.6549   [hit 100%]
+    â””â”€ cross_sectional_mean                   undefined   [undefined (constant cross-section)]
 
   After removing the per-entity level (training-period mean):
     Demeaned IC                                  +0.6880   [sd 0.054, hit 100%, n=104]
@@ -115,6 +115,6 @@ READING
 PROVENANCE
 ==============================================================================
 
-  git_commit            8033f5b-dirty
-  generated_at          2026-08-19T15:32:14+00:00
+  git_commit            8afa47e-dirty
+  generated_at          2026-08-20T11:15:21+00:00
   python                3.12.10

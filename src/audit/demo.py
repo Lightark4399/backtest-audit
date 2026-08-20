@@ -26,6 +26,7 @@ from pathlib import Path
 
 from .audits.protocol import compare_protocols
 from .examples.pipelines import run_clean, run_leaky
+from .metrics.performance import compare_performance, performance
 from .run import run_baseline_audit
 from .synthetic import generate_drifting_panel, generate_panel
 
@@ -83,9 +84,11 @@ def main(argv: list[str] | None = None) -> int:
         if args.outdir:
             args.outdir.mkdir(parents=True, exist_ok=True)
             (args.outdir / f"{slug}_report.txt").write_text(
-                result.to_text(title=f"AUDIT -- {slug}")
+                result.to_text(title=f"AUDIT -- {slug}"), encoding="utf-8"
             )
-            (args.outdir / f"{slug}_report.json").write_text(result.to_json())
+            (args.outdir / f"{slug}_report.json").write_text(
+                result.to_json(), encoding="utf-8"
+            )
 
     # ---- Part 2: two real pipelines, same modelling, different protocol ----
     pipeline_rows = []
@@ -99,9 +102,11 @@ def main(argv: list[str] | None = None) -> int:
         if args.outdir:
             args.outdir.mkdir(parents=True, exist_ok=True)
             (args.outdir / f"pipeline_{label}_report.txt").write_text(
-                res.to_text(title=f"AUDIT -- pipeline_{label}")
+                res.to_text(title=f"AUDIT -- pipeline_{label}"), encoding="utf-8"
             )
-            (args.outdir / f"pipeline_{label}_report.json").write_text(res.to_json())
+            (args.outdir / f"pipeline_{label}_report.json").write_text(
+                res.to_json(), encoding="utf-8"
+            )
 
     # ---- Part 3: a panel carrying features, so the protocol audit can run ----
     #
@@ -118,9 +123,68 @@ def main(argv: list[str] | None = None) -> int:
     if args.outdir:
         args.outdir.mkdir(parents=True, exist_ok=True)
         (args.outdir / "drifting_report.txt").write_text(
-            drift_result.to_text(title="AUDIT -- drifting_relationship")
+            drift_result.to_text(title="AUDIT -- drifting_relationship"),
+            encoding="utf-8",
         )
-        (args.outdir / "drifting_report.json").write_text(drift_result.to_json())
+        (args.outdir / "drifting_report.json").write_text(
+            drift_result.to_json(), encoding="utf-8"
+        )
+
+    # ---- Part 4: the same finding, stated as a backtest report would state it ----
+    #
+    # Everything above is in IC units, which is the better register for this work
+    # and the wrong one for persuading anyone. This section says the same thing
+    # in the units a backtest report uses, because that is the form in which the
+    # deception is normally encountered.
+    print(_banner("THE SAME RESULT, AS A BACKTEST WOULD REPORT IT"))
+    perf_panels = {
+        "level_only": generate_panel(skill=0.0)[0],
+        "genuine_skill": generate_panel(skill=0.6)[0],
+    }
+    table = compare_performance(perf_panels)
+
+    zero = performance(perf_panels["level_only"], demean_labels=False)
+    zero_dm = performance(perf_panels["level_only"], demean_labels=True)
+
+    print()
+    print("  A strategy built on a prediction with EXACTLY ZERO skill —")
+    print("  it knows each entity's typical level and nothing else:")
+    print()
+    print(f"      annualised Sharpe        {zero.sharpe_annualised:>10.1f}")
+    print(f"      hit rate                 {zero.hit_rate:>10.1%}")
+    print(f"      maximum drawdown         {zero.max_drawdown:>10.1%}")
+    print(f"      periods                  {zero.n_periods:>10}")
+    print()
+    print("  Every day profitable, no drawdown, a Sharpe no real strategy reaches.")
+    print("  It is worth pausing on how convincing that table is, because none of")
+    print("  it is earned: the book is long the persistently-volatile names and")
+    print("  short the persistently-quiet ones, and the target barely moves.")
+    print()
+    print("  The same positions, scored against demeaned labels — that is, on the")
+    print("  part of the target that actually varies:")
+    print()
+    print(f"      annualised Sharpe        {zero_dm.sharpe_annualised:>10.1f}")
+    print(f"      hit rate                 {zero_dm.hit_rate:>10.1%}")
+    print(f"      maximum drawdown         {zero_dm.max_drawdown:>10.1%}")
+    print()
+    print("  Nothing was left. The audit above reaches the same verdict in IC")
+    print("  units: raw IC +0.63, demeaned IC +0.0006.")
+    print()
+    print("  For contrast, a prediction with genuine skill on deviations:")
+    print()
+    cols = ["sharpe_raw", "sharpe_demeaned", "hit_rate_demeaned"]
+    header = f"  {'panel':<18}" + "".join(f"{c:>20}" for c in cols)
+    print(header)
+    print("  " + "-" * (len(header) - 2))
+    for name in table.index:
+        row = table.loc[name]
+        print(
+            f"  {name:<18}"
+            + "".join(f"{float(row[c]):>20.3f}" for c in cols)
+        )
+    print()
+    print("  Raw Sharpe barely separates them. Demeaned Sharpe separates them")
+    print("  decisively — the same asymmetry the IC decomposition shows.")
 
     print(_banner("SIDE BY SIDE"))
     print()

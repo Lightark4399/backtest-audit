@@ -83,6 +83,23 @@ and it changed the module's claim from "random splitting inflates" to "random
 splitting inflates when the relationship drifts" — a conditional the module now
 measures rather than assumes.
 
+### M5 — PnL layer
+
+**Modules.** `metrics/performance.py`, a fourth demo section.
+
+**Verification.**
+- Positions dollar-neutral and unit-gross on every date
+- Positions invariant to monotone rescaling of the prediction
+- PnL arithmetic checked against a hand-computable four-entity case
+- Demeaned Sharpe orders panels identically to demeaned IC
+- Zero-skill panel: raw Sharpe > 20 with a ~100% hit rate, demeaned Sharpe < 10
+
+**Surprise.** The first run produced annualised Sharpes of 147–223 with 100% hit
+rates and zero drawdown across every panel, including one with no skill at all.
+That turned out to be the level effect expressed in Sharpe units, and it changed
+the module: instead of hiding it, the layer reports raw and demeaned Sharpe as a
+pair, mirroring the raw/demeaned IC decomposition.
+
 ### M3 — Point-in-time, survivorship, grouping
 
 **Modules.** `ingest/duckdb_store.py`, `sql/duckdb/001_schema.sql`,

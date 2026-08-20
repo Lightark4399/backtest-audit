@@ -39,6 +39,40 @@ This tool separates the two.
 
 ---
 
+## The same finding, as a backtest would report it
+
+`make demo` ends with a strategy built on a prediction that has **exactly zero**
+skill — it knows each entity's typical level and nothing else:
+
+```
+      annualised Sharpe             147.1
+      hit rate                     100.0%
+      maximum drawdown               0.0%
+      periods                         104
+```
+
+Every day profitable, no drawdown, a Sharpe no real strategy reaches. It is worth
+pausing on how convincing that table is, because none of it is earned: the book is
+long the persistently-volatile names and short the persistently-quiet ones, and
+the target barely moves.
+
+The same positions, scored against demeaned labels — the part of the target that
+actually varies:
+
+```
+      annualised Sharpe              -4.5
+      hit rate                      37.5%
+      maximum drawdown             186.8%
+```
+
+Nothing was left. The audit reaches the same verdict in IC units: raw IC +0.63,
+demeaned IC +0.0006.
+
+The Sharpe figures here are not achievable returns — no costs, no capacity, no
+constraints. They are the same information as the IC in different units, and the
+module says so. The reason to compute them anyway is that this is the form in
+which the deception is normally encountered.
+
 ## Demo output
 
 `make demo` builds two synthetic panels with **known** ground truth and audits
@@ -421,7 +455,8 @@ diagnostic), leaky-vs-clean example pipelines with five switchable defects,
 bitemporal store with as-of reconstruction, point-in-time vs restated
 comparison, survivorship audit via universe reconstruction, within/between group
 decomposition, validation-protocol comparison (random vs walk-forward vs purged),
-effective sample size, text and JSON reports, offline demo, 110 tests.
+effective sample size, a thin PnL layer reporting raw and demeaned Sharpe, text
+and JSON reports, offline demo, 125 tests.
 
 Possible extensions are listed with their rationale and cost in
 [PLAN.md](PLAN.md#roadmap). None of them blocks the framework being usable: the
