@@ -24,9 +24,10 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
+from .audits.protocol import compare_protocols
 from .examples.pipelines import run_clean, run_leaky
 from .run import run_baseline_audit
-from .synthetic import generate_panel
+from .synthetic import generate_drifting_panel, generate_panel
 
 
 def _banner(text: str) -> str:
@@ -102,6 +103,25 @@ def main(argv: list[str] | None = None) -> int:
             )
             (args.outdir / f"pipeline_{label}_report.json").write_text(res.to_json())
 
+    # ---- Part 3: a panel carrying features, so the protocol audit can run ----
+    #
+    # The other cases hold finished predictions, which is all most of the
+    # framework needs. The validation-protocol audit is the exception: it refits
+    # the model under different splitting schemes, so it requires features. A
+    # demo without this case would leave that module invisible in the output --
+    # and a module no one sees in the report is not delivered.
+    drift_panel = generate_drifting_panel(drift=1.5)
+    drift_result = run_baseline_audit(drift_panel)
+    print(_banner("CASE 3: drifting relationship, scored under three split protocols"))
+    print(drift_result.to_text(title="AUDIT -- drifting_relationship"))
+
+    if args.outdir:
+        args.outdir.mkdir(parents=True, exist_ok=True)
+        (args.outdir / "drifting_report.txt").write_text(
+            drift_result.to_text(title="AUDIT -- drifting_relationship")
+        )
+        (args.outdir / "drifting_report.json").write_text(drift_result.to_json())
+
     print(_banner("SIDE BY SIDE"))
     print()
     header = f"{'case':<16}{'raw IC':>10}{'demeaned IC':>14}{'increment':>12}{'naive incr.':>13}"
@@ -131,6 +151,36 @@ def main(argv: list[str] | None = None) -> int:
             print("Both pass the alignment audit: these defects are about what the")
             print("model was allowed to know, not about how it was scored. See")
             print("src/audit/examples/pipelines.py for which module catches which.")
+        print()
+
+    if drift_result.protocol is not None:
+        comp = drift_result.protocol
+        # The claim below is that the audit reports no inflation when there is
+        # none to report, so the control has to be measured rather than quoted:
+        # a number written into the narrative would not survive the next change
+        # to the panel generator.
+        stationary = compare_protocols(generate_drifting_panel(drift=0.0))
+        print()
+        print("Same model, same data, three splitting protocols:")
+        print()
+        h3 = f"{'protocol':<24}{'IC':>10}"
+        print(h3)
+        print("-" * len(h3))
+        for r in comp.results:
+            print(f"{r.name.replace('_', ' '):<24}{r.ic:>+10.4f}")
+        print()
+        print(
+            f"Random splitting is worth {comp.inflation:+.4f} of IC here, and none"
+            " of it is real: the"
+        )
+        print("relationship drifts, so random folds hand the model rows from the")
+        print("test period's own regime. Only the walk-forward figure is")
+        print("out-of-sample. On a STATIONARY panel the same audit reports")
+        print(
+            f"{stationary.inflation:+.4f} -- it measures whether the problem"
+            " applies rather than"
+        )
+        print("assuming it does.")
         print()
 
     print("Raw IC barely separates the two cases; demeaned IC separates them decisively.")

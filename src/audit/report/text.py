@@ -103,7 +103,11 @@ def format_significance(sig: SignificanceResult, indent: int = 4) -> str:
             f"  [{sig.information_loss:.0%} lost to serial dependence]"
         )
     for n in sig.notes:
-        lines.append(f"{pad}note: {n}")
+        # Notes can be long -- the effective-sample note runs past 150 characters
+        # -- and an unwrapped line breaks the report's alignment in a narrow
+        # terminal. Wrapped at the same width as every other block.
+        wrapped = _wrap(f"note: {n}", indent=indent)
+        lines.extend(wrapped)
     return "\n".join(lines)
 
 

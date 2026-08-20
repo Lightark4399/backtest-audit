@@ -275,7 +275,24 @@ def generate_drifting_panel(
     d[LABEL_COL] = (
         weight_a * d["f_a"] + weight_b * d["f_b"] + rng.normal(0.0, noise_sd, len(d))
     )
-    d[PRED_COL] = d[LABEL_COL].mean()
+    # A real prediction, fitted on the training period only and applied
+    # throughout. The panel needs one: the protocol audit refits from the
+    # features, but every other module scores a finished prediction, and a
+    # constant placeholder would make their correlations undefined and leave the
+    # report mostly empty.
+    #
+    # Fitting on training data alone is what makes this an honest baseline for
+    # the drift story: the model learns the early regime and is then applied to a
+    # later one, which is exactly the situation walk-forward validation is
+    # designed to reveal and random splitting is designed (accidentally) to hide.
+    train_mask = d[DATE_COL] <= base.train_end
+    x_train = np.column_stack(
+        [np.ones(int(train_mask.sum())), d.loc[train_mask, ["f_a", "f_b"]].to_numpy(float)]
+    )
+    y_train = d.loc[train_mask, LABEL_COL].to_numpy(float)
+    coef = np.linalg.lstsq(x_train, y_train, rcond=None)[0]
+    x_all = np.column_stack([np.ones(len(d)), d[["f_a", "f_b"]].to_numpy(float)])
+    d[PRED_COL] = x_all @ coef
 
     return Panel(
         data=d.reset_index(drop=True),

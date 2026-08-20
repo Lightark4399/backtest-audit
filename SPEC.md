@@ -82,9 +82,13 @@ rather than to how bad it is.
 "pass."** "Not measurable" and "measured, found to be nil" are different claims.
 Collapsing them is how a summary statistic misleads.
 
-**5. It is wired into the report.**
-A module whose output no one sees is not delivered. No exceptions — this is the
-rule that keeps the repository from accumulating orphaned code.
+**5. It is wired into the report, and the demo exercises it.**
+A module whose output no one sees is not delivered. Being importable and tested
+is not sufficient: the validation-protocol audit was merged in a state where it
+passed fifteen tests and then silently skipped in every demo case, because none
+of them carried the feature columns it needs. It was invisible in the shipped
+output. The criterion now requires a demo case that triggers the module, which
+is the only check that would have caught it.
 
 **6. Its limits are documented.**
 Each module states what it cannot catch. See the falsification standard below.

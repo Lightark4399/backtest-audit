@@ -1,0 +1,148 @@
+==============================================================================
+                        AUDIT -- drifting_relationship                        
+==============================================================================
+
+SCOPE
+  label                 synthetic_drifting_relationship
+  entities              120
+  dates                 260  (2021-01-04 .. 2021-12-31)
+  rows                  31,200
+  train boundary        2021-08-09
+
+==============================================================================
+BASELINE DECOMPOSITION
+==============================================================================
+
+  Raw IC (Pearson)                               +0.4817   [sd 0.103, hit 100%, n=104]
+  Raw IC (Spearman)                              +0.4663   [sd 0.108, hit 100%, n=104]
+
+  Free score available without any model:
+    й└йд persistence                              -0.0086   [hit 40%]
+    й└йд per_entity_train_mean                    -0.0090   [hit 45%]
+    й└йд ewma                                     -0.0093   [hit 46%]
+    й╕йд cross_sectional_mean                   undefined   [undefined (constant cross-section)]
+
+  After removing the per-entity level (training-period mean):
+    Demeaned IC                                  +0.4686   [sd 0.106, hit 100%, n=104]
+      t-stat (naive)           44.94
+      t-stat (Newey-West)      26.46   [maxlags=4, p=0.0000]
+      SE inflation              1.70x  [lag-1 autocorr +0.54]
+      effective sample            31 of 104 days  [70% lost to serial dependence]
+      note: lag-1 autocorrelation 0.54: 104 observations carry about 31
+      independent observations' worth of information, so the naive
+      t-statistic is optimistic
+
+  Increment over strongest baseline (persistence), partial correlation:
+    Incremental IC                               +0.4682   [sd 0.107, hit 100%, n=104]
+      t-stat (naive)           44.51
+      t-stat (Newey-West)      26.21   [maxlags=4, p=0.0000]
+      SE inflation              1.70x  [lag-1 autocorr +0.54]
+      effective sample            31 of 104 days  [70% lost to serial dependence]
+      note: lag-1 autocorrelation 0.54: 104 observations carry about 31
+      independent observations' worth of information, so the naive
+      t-statistic is optimistic
+
+==============================================================================
+ALIGNMENT AUDIT
+==============================================================================
+
+  Does the result depend on the prediction being paired with the
+  correct date's outcome?
+
+  [PASS] shuffle   labels permuted among entities within each date
+         +0.4663 -> -0.0068   (+101%)
+        PASS: IC collapses to -0.0068 when the entity-label pairing is
+        destroyed, so the score depends on that pairing.
+
+  [PASS] shift+1   predictions scored against the next date's labels
+         +0.4686 -> -0.0030   (+101%)
+        PASS: demeaned IC falls from +0.4686 to -0.0030 (101%) against the
+        next date's labels. For context, the demeaned label's own
+        persistence is rho=-0.01, so a modest drop is expected even when
+        alignment is correct.
+
+  [----] shift-1   predictions scored against the previous date's labels
+         +0.4686 -> -0.0091
+        DIAGNOSTIC: demeaned IC +0.4686 -> -0.0091; the prediction is closer
+        to the outcome it forecasts than to the one it was built from.
+
+==============================================================================
+VALIDATION PROTOCOL
+==============================================================================
+
+  Does the splitting scheme itself inflate the score?
+
+  random kfold                       +0.6954   [shuffled 5-fold over rows, time ignored]
+  walk forward                       +0.6166   [expanding window, train strictly before test]
+  purged walk forward                +0.6019   [expanding window, 5-date embargo]
+
+  Inflation from random splitting     +0.0935
+  Removed by the embargo alone       +0.0146
+
+  [FAIL]
+        FAIL: random K-fold scores +0.6954 against +0.6019 under a purged
+        walk-forward -- an inflation of +0.0935. Random splitting places
+        adjacent dates on both sides of the fold boundary, and for a
+        persistent target those are near-duplicates, so the model is
+        effectively evaluated on data it trained on. Only the walk-forward
+        figure describes out-of-sample performance.
+
+==============================================================================
+GROUP DECOMPOSITION
+==============================================================================
+
+  Grouping key: group  (4 groups scored)
+
+  Pooled IC (whole cross-section)                  +0.4663
+  Within-group IC (size-weighted)                  +0.4607
+  Within-group IC (unweighted)                     +0.4607
+  Between-group IC (ranking groups)                +0.3308
+  Level effect (pooled - within)                   +0.0057
+
+  [PASS]
+        PASS: within-group IC (+0.4607) is close to pooled (+0.4663). The
+        ranking ability survives inside groups, so it is not an artefact of
+        group-level differences.
+
+    group               n rows   typical n        IC
+    0                    3,120          30   +0.4559
+    1                    2,704          26   +0.4606
+    2                    3,120          30   +0.4668
+    3                    3,536          34   +0.4595
+
+==============================================================================
+SURVIVORSHIP
+==============================================================================
+
+  120 entities, 0 absent at the end (0.0% attrition)
+
+  Point-in-time universe (demeaned IC)             +0.4686
+  Survivors only (demeaned IC)                     +0.4686
+  Gap attributable to survivorship                 +0.0000
+
+  [----]
+        NO ATTRITION: every entity is present on the final date, so a
+        survivors-only universe is identical to the point-in-time one. This
+        says nothing about a real universe -- a panel assembled without
+        delisted entities in the first place would look exactly like this,
+        and the absence would be invisible here. Check that the source
+        universe was built from listing and delisting dates.
+
+==============================================================================
+READING
+==============================================================================
+
+  Headline raw IC is +0.4817.
+  A naive predictor (persistence) reaches -0.0086 with no model at all.
+  -- that is -2% of the headline number, available for free.
+
+  Demeaned IC is +0.4686: the prediction contains real information
+  about deviations from each entity's typical level.
+
+==============================================================================
+PROVENANCE
+==============================================================================
+
+  git_commit            8033f5b-dirty
+  generated_at          2026-08-19T15:32:34+00:00
+  python                3.12.10

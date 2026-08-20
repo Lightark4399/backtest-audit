@@ -259,6 +259,34 @@ asking what the data should contain rather than what the output should say.
 
 ---
 
+## Incident 11 — a module that passed its tests and shipped invisible
+
+**What happened.** The validation-protocol audit was merged with fifteen passing
+tests and correct wiring into the report. In every demo case it produced
+`"protocol": null`.
+
+**Diagnosis.** The audit refits the model under different splitting schemes, so
+it needs feature columns. Every demo panel carried finished predictions and no
+features, so the module was silently skipped — which is the correct behaviour for
+a missing input, and meant 350 lines of new code were invisible in the shipped
+output.
+
+**How it was caught.** Not by the test suite, which passed. The coding agent
+noticed it while reviewing the artefacts a sync had changed, and reported it
+without being asked. It also flagged a second cosmetic defect in the same pass: a
+newly added note ran to 158 characters in a report formatted to 78.
+
+**The fix.** A third demo case built on a panel that carries features, so the
+module appears in the output. The panel also needed a real prediction rather than
+a constant placeholder — with a constant, every other module's correlation was
+undefined and the report came out mostly empty.
+
+**Constraint added.** `SPEC.md` acceptance criterion 5 now requires a demo case
+that triggers the module, not merely that it be wired in. Tests prove a module
+works; only the demo proves anyone will see it.
+
+---
+
 ## Workflow constraints
 
 The rules that emerged, applied to every subsequent session:
@@ -288,10 +316,15 @@ because the acceptance criteria were "95 tests pass and the demo prints these tw
 numbers" — checkable directly from the working tree, with no dependence on the
 agent's state.
 
-**The agent's own quality observations are worth acting on.** It noticed that a
-sync had reverted two previously-fixed lint issues, and pointed out that the
-upstream source needed the same fix or the regression would recur every round.
-It was right, and the fix went upstream.
+**The agent's own quality observations are worth acting on.** Twice it reported
+problems it had not been asked to look for: a sync that had reverted two
+previously-fixed lint issues, with the correct diagnosis that the upstream source
+needed the same fix or the regression would recur every round; and a newly merged
+module that was skipped in every demo case despite passing its tests. Both were
+right, and both fixes went upstream. It also declined to proceed when a source
+directory did not exist, rather than guessing at the most recent similar path —
+which would have silently reverted three documents and reintroduced a batch of
+style regressions.
 
 ---
 

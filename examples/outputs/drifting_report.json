@@ -1,7 +1,7 @@
 {
   "provenance": {
     "git_commit": "8033f5b-dirty",
-    "generated_at": "2026-08-19T15:32:08+00:00",
+    "generated_at": "2026-08-19T15:32:34+00:00",
     "python": "3.12.10"
   },
   "config": {
@@ -26,14 +26,14 @@
     "first_date": "2021-01-04",
     "last_date": "2021-12-31",
     "train_end": "2021-08-09",
-    "label_name": "synthetic_persistent_target",
+    "label_name": "synthetic_drifting_relationship",
     "rows_dropped_incomplete": 0
   },
   "metrics": {
     "raw_ic": {
       "name": "raw_ic",
-      "mean": 0.6295369825586192,
-      "std": 0.04939248572004217,
+      "mean": 0.48172857513406886,
+      "std": 0.1025259540032684,
       "hit_rate": 1.0,
       "n_dates_used": 104,
       "n_dates_total": 104,
@@ -45,8 +45,8 @@
     },
     "rank_ic": {
       "name": "rank_ic",
-      "mean": 0.6027638805045221,
-      "std": 0.05223429360305731,
+      "mean": 0.46634802363411987,
+      "std": 0.10780662157272047,
       "hit_rate": 1.0,
       "n_dates_used": 104,
       "n_dates_total": 104,
@@ -58,9 +58,9 @@
     },
     "demeaned_ic": {
       "name": "demeaned_ic",
-      "mean": 0.0005622051745046366,
-      "std": 0.09847595916236532,
-      "hit_rate": 0.4807692307692308,
+      "mean": 0.4685895655146991,
+      "std": 0.10634024891826688,
+      "hit_rate": 1.0,
       "n_dates_used": 104,
       "n_dates_total": 104,
       "n_dates_undefined": 0,
@@ -76,9 +76,9 @@
     },
     "incremental_ic": {
       "name": "incremental_ic_vs_persistence",
-      "mean": -0.002213496548512548,
-      "std": 0.09700190044244188,
-      "hit_rate": 0.4519230769230769,
+      "mean": 0.4682454589974248,
+      "std": 0.10727695885950139,
+      "hit_rate": 1.0,
       "n_dates_used": 104,
       "n_dates_total": 104,
       "n_dates_undefined": 0,
@@ -92,16 +92,15 @@
       "rows_before_demean": 12480,
       "rows_after_demean": 12480,
       "entities_before": 120,
-      "entities_dropped_no_train_history": 0,
-      "naive_undemeaned_mean": 0.21943765621394312
+      "entities_dropped_no_train_history": 0
     }
   },
   "baselines": [
     {
       "name": "persistence",
-      "mean": 0.8415940343,
-      "std": 0.0280015229,
-      "hit_rate": 1.0,
+      "mean": -0.0086093719,
+      "std": 0.0972303509,
+      "hit_rate": 0.4038461538,
       "n_dates_used": 104,
       "n_dates_total": 104,
       "n_dates_undefined": 0,
@@ -113,9 +112,9 @@
     },
     {
       "name": "per_entity_train_mean",
-      "mean": 0.6548516991,
-      "std": 0.0492830058,
-      "hit_rate": 1.0,
+      "mean": -0.0089632961,
+      "std": 0.1031362434,
+      "hit_rate": 0.4519230769,
       "n_dates_used": 104,
       "n_dates_total": 104,
       "n_dates_undefined": 0,
@@ -127,9 +126,9 @@
     },
     {
       "name": "ewma",
-      "mean": 0.7913251187,
-      "std": 0.0259776022,
-      "hit_rate": 1.0,
+      "mean": -0.0092887727,
+      "std": 0.0908869948,
+      "hit_rate": 0.4615384615,
       "n_dates_used": 104,
       "n_dates_total": 104,
       "n_dates_undefined": 0,
@@ -159,46 +158,46 @@
       {
         "name": "shuffle",
         "description": "labels permuted among entities within each date",
-        "baseline_ic": 0.6027638805045221,
-        "perturbed_ic": -0.0183909673214486,
-        "drop": 0.6211548478259707,
-        "drop_ratio": 1.0305110639775812,
+        "baseline_ic": 0.46634802363411987,
+        "perturbed_ic": -0.006813640904549994,
+        "drop": 0.47316166453866987,
+        "drop_ratio": 1.014610635317918,
         "passed": true,
-        "verdict": "PASS: IC collapses to -0.0184 when the entity-label pairing is destroyed, so the score depends on that pairing.",
+        "verdict": "PASS: IC collapses to -0.0068 when the entity-label pairing is destroyed, so the score depends on that pairing.",
         "tolerance": 0.05,
         "seed": 0
       },
       {
         "name": "shift+1",
         "description": "predictions scored against the next date's labels",
-        "baseline_ic": 0.0005622051745046366,
-        "perturbed_ic": 0.0002175852287476803,
-        "drop": 0.00034461994575695637,
-        "drop_ratio": 0.6129789645934933,
-        "passed": null,
-        "verdict": "INCONCLUSIVE: demeaned IC under correct alignment is +0.0006, too close to zero to test whether it is date-specific. There is no signal here whose alignment could be verified.",
+        "baseline_ic": 0.4685895655146991,
+        "perturbed_ic": -0.00300701842158672,
+        "drop": 0.47159658393628584,
+        "drop_ratio": 1.0064171689744816,
+        "passed": true,
+        "verdict": "PASS: demeaned IC falls from +0.4686 to -0.0030 (101%) against the next date's labels. For context, the demeaned label's own persistence is rho=-0.01, so a modest drop is expected even when alignment is correct.",
         "offset": 1,
         "basis": "demeaned IC",
-        "label_autocorrelation": 0.7175663702619326,
-        "expected_under_persistence": 0.0004034195264117685,
-        "excess_over_expected": -0.00018583429766408824,
+        "label_autocorrelation": -0.0064830122612440505,
+        "expected_under_persistence": -0.0030378718987228164,
+        "excess_over_expected": 3.0853477136096215e-05,
         "tolerance": 0.05,
         "diagnostic_only": false
       },
       {
         "name": "shift-1",
         "description": "predictions scored against the previous date's labels",
-        "baseline_ic": 0.0005622051745046366,
-        "perturbed_ic": 0.0037909951011555285,
-        "drop": -0.003228789926650892,
-        "drop_ratio": -5.743081126024506,
+        "baseline_ic": 0.4685895655146991,
+        "perturbed_ic": -0.009075616896472507,
+        "drop": 0.4776651824111716,
+        "drop_ratio": 1.019367944923195,
         "passed": null,
-        "verdict": "INCONCLUSIVE: demeaned IC under correct alignment is +0.0006, too close to zero to test whether it is date-specific. There is no signal here whose alignment could be verified.",
+        "verdict": "DIAGNOSTIC: demeaned IC +0.4686 -> -0.0091; the prediction is closer to the outcome it forecasts than to the one it was built from.",
         "offset": -1,
         "basis": "demeaned IC",
-        "label_autocorrelation": 0.7175663702619326,
-        "expected_under_persistence": 0.0004034195264117685,
-        "excess_over_expected": 0.00338757557474376,
+        "label_autocorrelation": -0.0064830122612440505,
+        "expected_under_persistence": -0.0030378718987228164,
+        "excess_over_expected": -0.006037744997749691,
         "tolerance": 0.05,
         "diagnostic_only": true
       }
@@ -207,50 +206,48 @@
       "n_checks": 3,
       "n_gated": 2,
       "failed": [],
-      "inconclusive": [
-        "shift+1"
-      ],
-      "all_passed": false,
+      "inconclusive": [],
+      "all_passed": true,
       "any_failed": false
     }
   },
   "grouping": {
-    "pooled_ic": 0.6027638805045221,
-    "within_ic_weighted": 0.5979661389983971,
-    "within_ic_unweighted": 0.5933953509796452,
-    "between_ic": 0.5923076923076923,
-    "level_effect": 0.004797741506124997,
+    "pooled_ic": 0.46634802363411987,
+    "within_ic_weighted": 0.46065515788541367,
+    "within_ic_unweighted": 0.46069154767293474,
+    "between_ic": 0.3307692307692308,
+    "level_effect": 0.0056928657487061995,
     "n_groups": 4,
     "group_column": "group",
     "passed": true,
-    "verdict": "PASS: within-group IC (+0.5980) is close to pooled (+0.6028). The ranking ability survives inside groups, so it is not an artefact of group-level differences.",
+    "verdict": "PASS: within-group IC (+0.4607) is close to pooled (+0.4663). The ranking ability survives inside groups, so it is not an artefact of group-level differences.",
     "per_group": [
       {
         "group": 0,
         "n_rows": 3120,
         "typical_cross_section": 30.0,
-        "ic": 0.5747967827500642,
+        "ic": 0.4558569350560452,
         "note": ""
       },
       {
         "group": 1,
         "n_rows": 2704,
         "typical_cross_section": 26.0,
-        "ic": 0.5370874424720579,
+        "ic": 0.46058514135437206,
         "note": ""
       },
       {
         "group": 2,
         "n_rows": 3120,
         "typical_cross_section": 30.0,
-        "ic": 0.5874860956618465,
+        "ic": 0.4668306665525798,
         "note": ""
       },
       {
         "group": 3,
         "n_rows": 3536,
         "typical_cross_section": 34.0,
-        "ic": 0.6742110830346124,
+        "ic": 0.45949344772874184,
         "note": ""
       }
     ],
@@ -259,12 +256,47 @@
     "material_gap_threshold": 0.02,
     "n_groups_too_small": 0
   },
-  "protocol": null,
+  "protocol": {
+    "protocols": [
+      {
+        "name": "random_kfold",
+        "description": "shuffled 5-fold over rows, time ignored",
+        "ic": 0.6953948457959152,
+        "n_folds": 5,
+        "n_test_rows": 31200,
+        "seed": 0
+      },
+      {
+        "name": "walk_forward",
+        "description": "expanding window, train strictly before test",
+        "ic": 0.6165503391439221,
+        "n_folds": 5,
+        "n_test_rows": 25920,
+        "embargo": 0
+      },
+      {
+        "name": "purged_walk_forward",
+        "description": "expanding window, 5-date embargo",
+        "ic": 0.6019187610765151,
+        "n_folds": 5,
+        "n_test_rows": 25920,
+        "embargo": 5
+      }
+    ],
+    "inflation": 0.09347608471940005,
+    "embargo_effect": 0.014631578067407003,
+    "passed": false,
+    "verdict": "FAIL: random K-fold scores +0.6954 against +0.6019 under a purged walk-forward -- an inflation of +0.0935. Random splitting places adjacent dates on both sides of the fold boundary, and for a persistent target those are near-duplicates, so the model is effectively evaluated on data it trained on. Only the walk-forward figure describes out-of-sample performance.",
+    "n_splits": 5,
+    "embargo": 5,
+    "n_feature_columns": 2,
+    "material_gap_threshold": 0.02
+  },
   "survivorship": {
-    "survivors_ic": 0.6027638805045221,
-    "pit_ic": 0.6027638805045221,
-    "survivors_demeaned_ic": 0.0005622051745046366,
-    "pit_demeaned_ic": 0.0005622051745046366,
+    "survivors_ic": 0.46634802363411987,
+    "pit_ic": 0.46634802363411987,
+    "survivors_demeaned_ic": 0.4685895655146991,
+    "pit_demeaned_ic": 0.4685895655146991,
     "gap": 0.0,
     "n_entities_total": 120,
     "n_entities_surviving": 120,
@@ -277,33 +309,37 @@
   "significance": {
     "demeaned_ic": {
       "n_obs": 104,
-      "mean": 0.0005622051745046366,
-      "naive_se": 0.009656362257474365,
-      "naive_tstat": 0.05822121825115561,
-      "hac_se": 0.008080372586191422,
-      "hac_tstat": 0.06957664000115443,
-      "hac_pvalue": 0.9445306304502817,
-      "se_inflation": 0.8367926109997509,
+      "mean": 0.4685895655146991,
+      "naive_se": 0.010427519313741479,
+      "naive_tstat": 44.93777967854613,
+      "hac_se": 0.01770836527232093,
+      "hac_tstat": 26.461480679254365,
+      "hac_pvalue": 2.6918263485960733e-154,
+      "se_inflation": 1.698233754310547,
       "maxlags": 4,
-      "lag1_autocorr": -0.07934727218444688,
-      "effective_n": 104.0,
-      "information_loss": 0.0,
-      "notes": []
+      "lag1_autocorr": 0.5401755522520169,
+      "effective_n": 31.049540096819584,
+      "information_loss": 0.7014467298382732,
+      "notes": [
+        "lag-1 autocorrelation 0.54: 104 observations carry about 31 independent observations' worth of information, so the naive t-statistic is optimistic"
+      ]
     },
     "incremental_ic": {
       "n_obs": 104,
-      "mean": -0.002213496548512548,
-      "naive_se": 0.009511818907915304,
-      "naive_tstat": -0.23271012305234035,
-      "hac_se": 0.007662218150776238,
-      "hac_tstat": -0.28888456383720973,
-      "hac_pvalue": 0.7726697166278566,
-      "se_inflation": 0.8055471014487132,
+      "mean": 0.4682454589974248,
+      "naive_se": 0.010519371280451693,
+      "naive_tstat": 44.51268488522432,
+      "hac_se": 0.017863401151586824,
+      "hac_tstat": 26.212559132717573,
+      "hac_pvalue": 1.9112180400681318e-151,
+      "se_inflation": 1.698143422771155,
       "maxlags": 4,
-      "lag1_autocorr": -0.14396549726499933,
-      "effective_n": 104.0,
-      "information_loss": 0.0,
-      "notes": []
+      "lag1_autocorr": 0.5426131082065736,
+      "effective_n": 30.83614192920913,
+      "information_loss": 0.703498635296066,
+      "notes": [
+        "lag-1 autocorrelation 0.54: 104 observations carry about 31 independent observations' worth of information, so the naive t-statistic is optimistic"
+      ]
     }
   }
 }
