@@ -378,6 +378,50 @@ def format_protocol_comparison(comp) -> str:
     return "\n".join(out)
 
 
+def format_execution_timing(result) -> str:
+    """Decay profile as execution is delayed."""
+    mark = {True: "PASS", False: "FAIL", None: "----"}[result.passed]
+    out = [_header("EXECUTION TIMING"), ""]
+    out.append("  Could the signal have been traded when it was scored?")
+    out.append("")
+    out.append(f"  {'execution delay':<22}{'IC':>12}{'ann. Sharpe':>16}")
+    for r in result.results:
+        ic = "undefined" if not np.isfinite(r.ic) else f"{r.ic:+.4f}"
+        sh = "undefined" if not np.isfinite(r.sharpe) else f"{r.sharpe:+.2f}"
+        out.append(f"  lag {r.lag:<18}{ic:>12}{sh:>16}")
+    out.append("")
+    if np.isfinite(result.decay_ratio):
+        out.append(f"  {'retained at lag 1':<22}{result.decay_ratio:>11.0%}")
+        out.append("")
+    out.append(f"  [{mark}]")
+    out.extend(_wrap(result.verdict))
+    return "\n".join(out)
+
+
+def format_selection(result) -> str:
+    """Observed Sharpe against what selection alone would produce."""
+    mark = {True: "PASS", False: "FAIL", None: "----"}[result.passed]
+    out = [_header("SELECTION BIAS"), ""]
+    out.append(f"  {'Observed Sharpe':<40}{result.observed_sharpe:>+12.4f}")
+    out.append(f"  {'Configurations examined':<40}{result.n_trials:>12}")
+    out.append(
+        f"  {'Expected maximum from selection alone':<40}"
+        f"{result.expected_max_sharpe:>+12.4f}"
+    )
+    out.append(
+        f"  {'Deflated probability':<40}{result.deflated_probability:>12.3f}"
+    )
+    out.append("")
+    out.append(
+        f"  return shape: skew {result.skew:+.2f}, kurtosis {result.kurtosis:.2f} "
+        f"over {result.n_observations:.0f} observations"
+    )
+    out.append("")
+    out.append(f"  [{mark}]")
+    out.extend(_wrap(result.verdict))
+    return "\n".join(out)
+
+
 def render_report(
     scope: dict,
     raw: ICSeries,
@@ -391,6 +435,8 @@ def render_report(
     group_result=None,
     survivorship_result=None,
     protocol_result=None,
+    execution_result=None,
+    selection_result=None,
     pit_result=None,
     title: str = "BACKTEST CREDIBILITY AUDIT",
     provenance: dict | None = None,
@@ -408,6 +454,10 @@ def render_report(
         parts.append(format_alignment_audit(alignment_checks))
     if protocol_result is not None:
         parts.append(format_protocol_comparison(protocol_result))
+    if execution_result is not None:
+        parts.append(format_execution_timing(execution_result))
+    if selection_result is not None:
+        parts.append(format_selection(selection_result))
     if group_result is not None:
         parts.append(format_group_decomposition(group_result))
     if survivorship_result is not None:

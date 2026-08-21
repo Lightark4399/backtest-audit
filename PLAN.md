@@ -133,6 +133,23 @@ end on every push.
 Ordered by expected value, not by ease. Nothing here blocks the project being
 complete — these are extensions, and the repository is usable without them.
 
+### M6 — Execution timing and selection bias
+
+**Modules.** `audits/execution.py`, `audits/selection.py`.
+
+**Verification.**
+- A look-ahead signal: IC 0.878 at lag 0, 0.013 at lag 1 — flagged
+- An honest forecast: no edge at lag 0, edge at lag 1 — passes, with the profile
+  named rather than treated as anomalous
+- Decay ratio monotone in the degree of look-ahead
+- Best of 42 pure-noise candidates fails; the same returns as a single test pass
+- BH keeps genuinely strong candidates and rejects all of the noise
+
+**Surprise.** The first verdict logic reported the healthiest profile — no edge
+at lag 0, edge at lag 1 — as INCONCLUSIVE, because it only looked for decay. A
+pure forecast has nothing to decay *from* at lag 0. Restructured to name that
+profile explicitly.
+
 ### Next
 
 **A thin PnL layer.** Signal → position → return → Sharpe, drawdown, equity
@@ -142,19 +159,6 @@ but because "Sharpe 3.2 with a 4% drawdown" is legible to a reader who would
 skim past "demeaned IC 0.0006". The audit machinery underneath stays as it is.
 
 ### Later
-
-**Execution-timing audit.** A signal computed at Friday's close cannot trade at
-Friday's close. Report the decay in IC and Sharpe as execution moves from `lag=0`
-to `lag=1` to `lag=2`. Profitable at `lag=0` and flat at `lag=1` is direct
-evidence of look-ahead.
-*Costlier than it looks: needs the panel to carry a return series and an
-execution assumption, which is a change to the data contract rather than a new
-function.*
-
-**Deflated Sharpe / multiple-testing correction.** Scanning a 7×6 parameter grid
-and reporting the best cell requires a selection-bias correction. Needs the
-framework to accept N candidate signals — an interface extension, hence its
-position here rather than earlier.
 
 ### Issues, not roadmap
 

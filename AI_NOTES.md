@@ -316,6 +316,50 @@ very deception the project exists to expose.
 
 ---
 
+## Incident 13 — a defect only visible in the delivered artefact
+
+**What happened.** The demo writes its reports with `Path.write_text()`, which on
+Windows uses the system encoding. The box-drawing characters in the decomposition
+tree were written as cp1252 mojibake, and the files had been committed that way
+for several rounds — publicly visible on GitHub the whole time.
+
+**How it was caught.** Not by the test suite, which never reads those files, and
+not by CI, which does not check their encoding. The coding agent noticed it while
+comparing incoming and existing artefacts during a sync.
+
+**The fix.** `encoding="utf-8"` on every `write_text` call in `demo.py` and
+`cli.py`.
+
+**Constraint added.** Tests establish that code runs; only inspecting the
+delivered artefact establishes what a reader sees. This is the same lesson as
+incident 11 from a different angle — there a module was invisible in the output,
+here it was visible and wrong.
+
+---
+
+## Incident 14 — the check misread its own healthiest outcome
+
+**What happened.** The execution-timing audit scores a signal as execution is
+delayed, and flags a collapse between lag 0 and lag 1 as look-ahead. Run against
+an honest forecast, it returned INCONCLUSIVE.
+
+**Diagnosis.** The honest signal had an IC of −0.006 at lag 0 and +0.143 at lag 1,
+and the verdict logic required a large lag-0 score before it would read the
+profile at all. But a pure forecast *should* have no edge at lag 0: that return
+had already happened when the signal was computed. The healthiest possible
+profile was being treated as unreadable.
+
+**The fix.** A third verdict class that names it — no edge on the contemporaneous
+return, edge once execution moves forward — and explains why that is what
+forecasting looks like.
+
+**Constraint added.** When designing a check around a failure signature, enumerate
+what success looks like too. The failure case was correct from the first attempt;
+the success case had not been thought through, and would have flagged every
+honest signal as unreadable.
+
+---
+
 ## Workflow constraints
 
 The rules that emerged, applied to every subsequent session:

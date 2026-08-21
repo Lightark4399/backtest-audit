@@ -21,6 +21,7 @@ from datetime import datetime, timezone
 import pandas as pd
 
 from .audits.alignment import alignment_summary, run_alignment_audit
+from .audits.execution import audit_execution_timing
 from .audits.grouping import decompose_by_group
 from .audits.protocol import compare_protocols
 from .audits.survivorship import run_survivorship_audit
@@ -73,6 +74,13 @@ class AuditResult:
     grouping: object = None
     survivorship: object = None
     protocol: object = None
+    execution: object = None
+    # Not filled by run_baseline_audit: the Deflated Sharpe needs the return
+    # series of all N candidates, and n_trials must be the number of configs
+    # actually swept -- which cannot be inferred from a single panel. Inventing
+    # a number is the exact behaviour this audit warns about. Callers compute
+    # the result themselves and attach it here before rendering.
+    selection: object = None
     provenance: dict = field(default_factory=dict)
     config: dict = field(default_factory=dict)
 
@@ -90,6 +98,8 @@ class AuditResult:
             group_result=self.grouping,
             survivorship_result=self.survivorship,
             protocol_result=self.protocol,
+            execution_result=self.execution,
+            selection_result=self.selection,
             title=title,
             provenance=self.provenance,
         )
@@ -113,6 +123,8 @@ class AuditResult:
             },
             "grouping": self.grouping.to_dict() if self.grouping is not None else None,
             "protocol": self.protocol.to_dict() if self.protocol is not None else None,
+            "execution": self.execution.to_dict() if self.execution is not None else None,
+            "selection": self.selection.to_dict() if self.selection is not None else None,
             "survivorship": (
                 self.survivorship.to_dict() if self.survivorship is not None else None
             ),
@@ -139,6 +151,7 @@ def run_baseline_audit(
     group_column: str | None = "group",
     run_survivorship: bool = True,
     run_protocol: bool = True,
+    return_column: str = "forward_return",
 ) -> AuditResult:
     """Run the baseline-decomposition audit (module 1).
 
@@ -216,6 +229,21 @@ def run_baseline_audit(
         except Exception:  # a protocol that cannot be scored is omitted, not fatal
             protocol = None
 
+    # Execution timing needs a return series. A panel carrying a non-tradeable
+    # target skips it rather than producing a number about an execution that has
+    # no meaning for that target.
+    execution = None
+    if return_column in panel.data.columns:
+        try:
+            execution = audit_execution_timing(
+                panel, return_col=return_column, scope=scope
+            )
+        except ValueError:
+            # The audit raises ValueError when the return column is absent --
+            # the expected case the guard above already screens for, so it is a
+            # silent skip. Anything else is a real failure and should surface.
+            execution = None
+
     provenance = {
         "git_commit": _git_commit(),
         "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
@@ -230,6 +258,7 @@ def run_baseline_audit(
         "group_column": group_column,
         "survivorship_audit": run_survivorship,
         "protocol_audit": run_protocol,
+        "return_column": return_column,
     }
 
     return AuditResult(
@@ -245,6 +274,7 @@ def run_baseline_audit(
         grouping=grouping,
         survivorship=survivorship,
         protocol=protocol,
+        execution=execution,
         provenance=provenance,
         config=config,
     )

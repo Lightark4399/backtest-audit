@@ -1,7 +1,7 @@
 {
   "provenance": {
-    "git_commit": "8afa47e-dirty",
-    "generated_at": "2026-08-20T11:15:17+00:00",
+    "git_commit": "40b97b5-dirty",
+    "generated_at": "2026-08-21T01:50:14+00:00",
     "python": "3.12.10"
   },
   "config": {
@@ -17,7 +17,8 @@
     "alignment_audit": true,
     "group_column": "group",
     "survivorship_audit": true,
-    "protocol_audit": true
+    "protocol_audit": true,
+    "return_column": "forward_return"
   },
   "scope": {
     "n_rows": 31200,
@@ -260,6 +261,8 @@
     "n_groups_too_small": 0
   },
   "protocol": null,
+  "execution": null,
+  "selection": null,
   "survivorship": {
     "survivors_ic": 0.6027638805045221,
     "pit_ic": 0.6027638805045221,

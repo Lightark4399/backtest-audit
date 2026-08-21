@@ -48,7 +48,10 @@ worry:
 | Data revised after the fact | point-in-time vs restated |
 | Universe missing its failures | survivorship via universe reconstruction |
 | Group-level differences | within/between group decomposition |
-| Autocorrelation inflating significance | Newey-West HAC |
+| Autocorrelation inflating significance | Newey-West HAC, effective sample size |
+| A splitting scheme that leaks | random vs purged walk-forward |
+| An execution that was never available | execution-timing decay |
+| Selecting the best of N candidates | Deflated Sharpe, FDR screening |
 
 ---
 

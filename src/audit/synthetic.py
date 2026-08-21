@@ -301,6 +301,64 @@ def generate_drifting_panel(
     )
 
 
+def generate_return_panel(
+    spec: SyntheticSpec | None = None,
+    *,
+    lookahead: float = 0.0,
+    skill: float = 0.15,
+    seed: int = 5,
+) -> Panel:
+    """Panel with a return series, for the execution-timing audit.
+
+    ``lookahead`` controls the defect. At 0 the prediction forecasts the NEXT
+    period's return honestly. At 1 it is built from the CURRENT period's return
+    -- the signature of a signal computed from a close and assumed to trade at
+    that same close.
+
+    The two produce very different decay profiles, which is the whole point:
+
+    * honest -- scores modestly at every lag, decaying gently
+    * look-ahead -- scores spectacularly at lag 0 and collapses at lag 1
+
+    Returns are the label here, unlike the volatility-style target used
+    elsewhere. Execution timing only has meaning against something tradeable, and
+    a sign-constant target would make the decay profile uninterpretable.
+    """
+    spec = spec or SyntheticSpec()
+    rng = np.random.default_rng(seed)
+
+    entities = [f"R{i:04d}" for i in range(spec.n_entities)]
+    dates = pd.bdate_range("2021-01-04", periods=spec.n_dates)
+
+    # Returns are near-independent across time, as returns are, which is what
+    # makes the lag test sharp: there is no persistence to blur the profile.
+    returns = rng.normal(0.0, 0.02, size=(spec.n_dates, spec.n_entities))
+
+    prediction = np.empty_like(returns)
+    for t in range(spec.n_dates):
+        forward = returns[t + 1] if t + 1 < spec.n_dates else np.zeros(spec.n_entities)
+        honest = skill * forward
+        peek = returns[t]  # the return the signal should not yet know
+        prediction[t] = (
+            (1.0 - lookahead) * honest
+            + lookahead * peek
+            + rng.normal(0.0, 0.02 * (1.0 - 0.5 * lookahead), size=spec.n_entities)
+        )
+
+    n = spec.n_dates * spec.n_entities
+    frame = pd.DataFrame(
+        {
+            "entity_id": np.tile(entities, spec.n_dates),
+            "event_date": np.repeat(dates.values, spec.n_entities),
+            "prediction": prediction.reshape(n),
+            "label": returns.reshape(n),
+            "forward_return": returns.reshape(n),
+        }
+    )
+    train_end = dates[int(spec.n_dates * spec.train_fraction) - 1]
+    return Panel.from_frame(frame, train_end=train_end, label_name="synthetic_return")
+
+
 def generate_perfect_panel(n_entities: int = 50, n_dates: int = 30) -> Panel:
     """Panel where prediction equals label exactly. Every IC must be 1.0."""
     rng = np.random.default_rng(0)

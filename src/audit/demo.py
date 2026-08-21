@@ -24,11 +24,13 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
+from .audits.execution import audit_execution_timing
 from .audits.protocol import compare_protocols
+from .audits.selection import deflated_sharpe, screen_candidates
 from .examples.pipelines import run_clean, run_leaky
 from .metrics.performance import compare_performance, performance
 from .run import run_baseline_audit
-from .synthetic import generate_drifting_panel, generate_panel
+from .synthetic import generate_drifting_panel, generate_panel, generate_return_panel
 
 
 def _banner(text: str) -> str:
@@ -185,6 +187,53 @@ def main(argv: list[str] | None = None) -> int:
     print()
     print("  Raw Sharpe barely separates them. Demeaned Sharpe separates them")
     print("  decisively — the same asymmetry the IC decomposition shows.")
+
+    # ---- Part 5: execution timing ----
+    print(_banner("CASE 4: a signal that trades at a price it could not have got"))
+    exec_panel = generate_return_panel(lookahead=1.0)
+    exec_result = audit_execution_timing(exec_panel)
+    print()
+    print("  A signal computed from each day's close, backtested as though it")
+    print("  could transact at that same close:")
+    print()
+    print(f"  {'execution delay':<22}{'IC':>12}{'ann. Sharpe':>16}")
+    for r in exec_result.results:
+        print(f"  lag {r.lag:<18}{r.ic:>+12.4f}{r.sharpe:>+16.2f}")
+    print()
+    print("  The close is the last observable price of the session. By the time")
+    print("  it exists, the chance to trade at it has gone. Delay execution by a")
+    print("  single period -- the honest assumption -- and the entire result")
+    print("  disappears. Nothing about the strategy changed; only when it traded.")
+
+    # ---- Part 6: selection bias ----
+    print(_banner("CASE 5: the best of 42 configurations, none of which work"))
+    rng = __import__("numpy").random.default_rng(7)
+    grid = {
+        f"cfg{i:02d}": __import__("pandas").Series(rng.normal(0.0, 0.01, 756))
+        for i in range(42)
+    }
+    sharpes = {k: v.mean() / v.std(ddof=1) for k, v in grid.items()}
+    winner = max(sharpes, key=sharpes.get)
+    annualised = sharpes[winner] * (252 ** 0.5)
+    ds = deflated_sharpe(grid[winner], n_trials=len(grid))
+    single = deflated_sharpe(grid[winner], n_trials=1)
+
+    print()
+    print(f"  Every one of 42 configurations is pure noise. The best, {winner},")
+    print(f"  shows an annualised Sharpe of {annualised:.2f}.")
+    print()
+    print(f"  {'reported as the winner of 42 trials':<44}"
+          f"prob {ds.deflated_probability:.3f}   {'FAIL' if ds.passed is False else ''}")
+    print(f"  {'the same returns, reported as one test':<44}"
+          f"prob {single.deflated_probability:.3f}   {'PASS' if single.passed else ''}")
+    print()
+    print("  Identical data. The difference is provenance: one number was")
+    print("  selected for being the largest of 42, and maxima of noise are large.")
+
+    screened = screen_candidates(grid)
+    print()
+    print(f"  Screening all 42 at once: {int(screened['naive_significant'].sum())} look")
+    print(f"  significant individually, {int(screened['survives'].sum())} survive FDR control.")
 
     print(_banner("SIDE BY SIDE"))
     print()

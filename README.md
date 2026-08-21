@@ -432,6 +432,52 @@ over-reading a t-statistic. Negative autocorrelation is capped at `n_eff = n`
 rather than awarding a bonus, since claiming more information than observations
 would be the same overstatement in the opposite direction.
 
+### Execution timing: the trade that could not have happened
+
+A signal computed from Friday's close cannot be traded at Friday's close. The
+close is the last observable price of the session; by the time it exists, the
+chance to transact at it has gone.
+
+The audit re-scores the same signal as execution is delayed:
+
+```
+  execution delay                 IC     ann. Sharpe
+  lag 0                      +0.8776         +188.13
+  lag 1                      +0.0130           +2.97
+  lag 2                      +0.0008           -0.26
+```
+
+Nothing about the strategy changed — only when it traded.
+
+The module distinguishes three profiles, and the third was added after testing
+because the first version treated the *healthiest* one as unreadable. A signal
+with no edge at lag 0 and a real edge at lag 1 is not failing to decay: the lag-0
+return had already happened when the signal was computed, so having no
+relationship with it is exactly what forecasting, as opposed to reading, looks
+like.
+
+### Selection bias: the best of 42 configurations, none of which work
+
+```
+  Every one of 42 configurations is pure noise. The best, cfg12,
+  shows an annualised Sharpe of 1.18.
+
+  reported as the winner of 42 trials         prob 0.430   FAIL
+  the same returns, reported as one test      prob 0.979   PASS
+```
+
+Identical data, different verdicts. The difference is provenance: one number was
+selected for being the largest of 42, and maxima of noise are large. The Deflated
+Sharpe Ratio asks what the maximum would be under the null given N trials and the
+observed skew and kurtosis, and expresses the observed figure against it.
+
+Screening all 42 at once, three look significant individually and none survive
+FDR control.
+
+The correction depends on an honest `n_trials`, including configurations
+abandoned early — and nothing in the returns can detect an understated count.
+That limitation is stated in the module rather than papered over.
+
 ### Postgres is the reference, DuckDB is what runs
 
 ``sql/001_schema.sql`` and ``sql/002_pit_views.sql`` are the reference design.
@@ -456,7 +502,8 @@ bitemporal store with as-of reconstruction, point-in-time vs restated
 comparison, survivorship audit via universe reconstruction, within/between group
 decomposition, validation-protocol comparison (random vs walk-forward vs purged),
 effective sample size, a thin PnL layer reporting raw and demeaned Sharpe, text
-and JSON reports, offline demo, 125 tests.
+execution-timing decay, Deflated Sharpe and FDR screening, text and JSON
+reports, offline demo, 151 tests.
 
 Possible extensions are listed with their rationale and cost in
 [PLAN.md](PLAN.md#roadmap). None of them blocks the framework being usable: the
