@@ -16,7 +16,7 @@ def test_release_version_is_v011():
 
 def test_plan_describes_the_current_test_and_module_status():
     plan = (ROOT / "PLAN.md").read_text(encoding="utf-8")
-    assert "175 tests" in plan
+    assert "179 tests" in plan
     assert "Execution timing and selection bias" in plan
     assert "Feature freeze" in plan
     assert "A thin PnL layer" not in plan

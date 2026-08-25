@@ -122,7 +122,7 @@ first survivorship generator was too weak to demonstrate anything.
 
 ## Current status
 
-Version 0.1.1 has 175 tests. The panel contract, baseline decomposition,
+Version 0.1.1 has 179 tests. The panel contract, baseline decomposition,
 alignment, point-in-time vintage comparison, survivorship, grouping, validation
 protocol, PnL, execution timing and selection-bias modules are implemented. The
 runner emits one out-of-sample test-period credibility report; it no longer

@@ -505,7 +505,7 @@ comparison, survivorship audit via universe reconstruction, within/between group
 decomposition, validation-protocol comparison (random vs walk-forward vs embargoed),
 effective sample size, a thin PnL layer reporting raw and demeaned Sharpe, text
 execution-timing decay, Deflated Sharpe and FDR screening, text and JSON
-reports, offline demo, 175 tests.
+reports, offline demo, 179 tests.
 
 Possible extensions are listed with their rationale and cost in
 [PLAN.md](PLAN.md#roadmap). None of them blocks the framework being usable: the
