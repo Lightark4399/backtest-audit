@@ -481,7 +481,7 @@ That limitation is stated in the module rather than papered over.
 ### Postgres is the reference, DuckDB is what runs
 
 ``sql/001_schema.sql`` and ``sql/002_pit_views.sql`` are the reference design.
-``sql/duckdb/001_schema.sql`` is the executable port, and it is what the
+``src/audit/sql/duckdb/001_schema.sql`` is the packaged executable port, and it is what the
 integration tests run against: DuckDB is embedded, so the point-in-time tests
 need no service to provision and run in CI unchanged. The dialects agree on
 everything load-bearing here -- ``DISTINCT ON``, window frames, CTEs, CHECK

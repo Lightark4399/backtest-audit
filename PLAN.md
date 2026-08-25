@@ -102,7 +102,7 @@ pair, mirroring the raw/demeaned IC decomposition.
 
 ### M3 — Point-in-time, survivorship, grouping
 
-**Modules.** `ingest/duckdb_store.py`, `sql/duckdb/001_schema.sql`,
+**Modules.** `ingest/duckdb_store.py`, `src/audit/sql/duckdb/001_schema.sql`,
 `audits/pit.py`, `audits/survivorship.py`, `audits/grouping.py`.
 
 **Verification.**
