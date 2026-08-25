@@ -200,8 +200,19 @@ def format_interpretation(
             )
 
     out.append("")
-    if demeaned.n_dates_used == 0:
+    if demeaned.n_dates_used == 0 or not np.isfinite(demeaned.mean):
         out.append("  Demeaned IC could not be computed; the decomposition is incomplete.")
+    elif demeaned.mean <= -0.02:
+        out.append(
+            f"  Demeaned IC is {demeaned.mean:+.4f}: a negative association remains after"
+        )
+        out.append(
+            "  removing the stable entity level. Check prediction and label sign conventions."
+        )
+        out.append(
+            "  This is not evidence for an inverted trading signal: using a reversal requires"
+        )
+        out.append("  separate out-of-sample validation.")
     elif abs(demeaned.mean) < 0.02:
         out.append(
             "  Demeaned IC is indistinguishable from zero: once the stable per-entity"
@@ -212,14 +223,14 @@ def format_interpretation(
         out.append("  The headline IC is measuring the level, not forecast skill.")
     elif demeaned.mean < 0.10:
         out.append(
-            f"  Demeaned IC is {demeaned.mean:+.4f}: small but non-zero skill beyond the level."
+            f"  Demeaned IC is {demeaned.mean:+.4f}: a small positive association beyond the level."
         )
         out.append("  Judge it against the free score above, not against the headline IC.")
     else:
         out.append(
-            f"  Demeaned IC is {demeaned.mean:+.4f}: the prediction contains real information"
+            f"  Demeaned IC is {demeaned.mean:+.4f}: a substantial positive association remains"
         )
-        out.append("  about deviations from each entity's typical level.")
+        out.append("  after removing each entity's typical level.")
 
     return "\n".join(out)
 
