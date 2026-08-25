@@ -401,7 +401,7 @@ data it trained on.
 The audit scores the same model under shuffled K-fold, expanding-window
 walk-forward, and walk-forward with an embargo. On a panel where the
 feature-to-label relationship drifts, random splitting reads **+0.695** against
-**+0.602** for the purged walk-forward: **+0.094 of unearned score**, with the
+**+0.602** for the embargoed walk-forward: **+0.094 of unearned score**, with the
 embargo alone accounting for +0.015 of it.
 
 The conditional half is what makes this a measurement rather than a maxim. With

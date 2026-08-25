@@ -41,7 +41,11 @@ The same model, the same data, scored under three protocols:
 
 * ``random_kfold`` -- shuffled K-fold, ignoring time entirely
 * ``walk_forward`` -- expanding window, train on the past, test on the future
-* ``purged_walk_forward`` -- as above, with an embargo gap
+* ``embargoed_walk_forward`` -- as above, with an embargo gap
+
+This module implements embargo only. True purging requires per-sample feature
+and label information intervals so overlapping training rows can be identified;
+without those intervals, claiming to purge would overstate the evidence.
 
 The gap between the first and the last is the inflation attributable to the
 protocol. On a persistent target it is usually large, and it is entirely
@@ -86,7 +90,7 @@ class ProtocolResult:
 
 @dataclass
 class ProtocolComparison:
-    """Comparison of random, ordered and purged protocols."""
+    """Comparison of random, ordered and embargoed protocols."""
 
     results: list[ProtocolResult]
     passed: bool | None
@@ -98,9 +102,9 @@ class ProtocolComparison:
 
     @property
     def inflation(self) -> float:
-        """Random-split IC minus purged walk-forward IC."""
+        """Random-split IC minus embargoed walk-forward IC."""
         a = self.by_name("random_kfold")
-        b = self.by_name("purged_walk_forward")
+        b = self.by_name("embargoed_walk_forward")
         if a is None or b is None:
             return float("nan")
         return a.ic - b.ic
@@ -109,7 +113,7 @@ class ProtocolComparison:
     def embargo_effect(self) -> float:
         """How much the embargo alone removes."""
         a = self.by_name("walk_forward")
-        b = self.by_name("purged_walk_forward")
+        b = self.by_name("embargoed_walk_forward")
         if a is None or b is None:
             return float("nan")
         return a.ic - b.ic
@@ -256,7 +260,7 @@ def run_walk_forward(
         return ProtocolResult("walk_forward", "expanding window", float("nan"), 0, 0)
 
     scored = pd.concat(out, ignore_index=True)
-    name = "purged_walk_forward" if embargo > 0 else "walk_forward"
+    name = "embargoed_walk_forward" if embargo > 0 else "walk_forward"
     desc = (
         f"expanding window, {embargo}-date embargo"
         if embargo > 0
@@ -280,7 +284,7 @@ def compare_protocols(
     alpha: float = 1e-2,
     seed: int = 0,
 ) -> ProtocolComparison:
-    """Score the same model under random, ordered and purged protocols.
+    """Score the same model under random, ordered and embargoed protocols.
 
     ``feature_cols`` defaults to columns prefixed ``f_``. The panel must carry
     features, not just predictions: the whole point is to refit under different
@@ -308,7 +312,7 @@ def compare_protocols(
     inflation = comp.inflation
 
     rnd = comp.by_name("random_kfold")
-    purged = comp.by_name("purged_walk_forward")
+    embargoed = comp.by_name("embargoed_walk_forward")
 
     if not np.isfinite(inflation):
         comp.passed = None
@@ -317,7 +321,7 @@ def compare_protocols(
         comp.passed = False
         comp.verdict = (
             f"FAIL: random K-fold scores {rnd.ic:+.4f} against "
-            f"{purged.ic:+.4f} under a purged walk-forward -- an inflation of "
+            f"{embargoed.ic:+.4f} under an embargoed walk-forward -- an inflation of "
             f"{inflation:+.4f}. Random splitting places adjacent dates on both "
             "sides of the fold boundary, and for a persistent target those are "
             "near-duplicates, so the model is effectively evaluated on data it "

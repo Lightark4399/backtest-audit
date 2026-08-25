@@ -51,7 +51,7 @@ def test_drifting_relationship_inflates_the_random_split():
     comp = compare_protocols(generate_drifting_panel(drift=1.5))
     assert comp.inflation > MATERIAL_GAP
     assert comp.passed is False
-    assert comp.by_name("random_kfold").ic > comp.by_name("purged_walk_forward").ic
+    assert comp.by_name("random_kfold").ic > comp.by_name("embargoed_walk_forward").ic
 
 
 def test_inflation_grows_with_drift():
@@ -92,8 +92,19 @@ def test_embargo_reduces_the_walk_forward_score_or_leaves_it_unchanged():
     data = panel.data
     cols = ["f_a", "f_b"]
     plain = run_walk_forward(data, cols, n_splits=5, embargo=0)
-    purged = run_walk_forward(data, cols, n_splits=5, embargo=10)
-    assert purged.ic <= plain.ic + 1e-9
+    embargoed = run_walk_forward(data, cols, n_splits=5, embargo=10)
+    assert embargoed.ic <= plain.ic + 1e-9
+
+
+def test_embargo_is_not_mislabelled_as_purging():
+    panel = generate_drifting_panel(drift=1.5)
+    result = run_walk_forward(panel.data, ["f_a", "f_b"], n_splits=5, embargo=10)
+    assert result.name == "embargoed_walk_forward"
+    assert "purge" not in result.description.lower()
+
+    comparison = compare_protocols(panel)
+    assert comparison.by_name("embargoed_walk_forward") is not None
+    assert "purged" not in comparison.verdict.lower()
 
 
 def test_random_kfold_uses_every_row_exactly_once():

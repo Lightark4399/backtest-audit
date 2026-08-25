@@ -371,7 +371,7 @@ def format_pit(result) -> str:
 
 
 def format_protocol_comparison(comp) -> str:
-    """Random vs ordered vs purged splitting, scored on the same model."""
+    """Random vs ordered vs embargoed splitting, scored on the same model."""
     mark = {True: "PASS", False: "FAIL", None: "----"}[comp.passed]
     out = [_header("VALIDATION PROTOCOL"), ""]
     out.append("  Does the splitting scheme itself inflate the score?")
