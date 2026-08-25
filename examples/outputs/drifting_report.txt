@@ -3,10 +3,11 @@
 ==============================================================================
 
 SCOPE
+  evaluation scope       test
   label                 synthetic_drifting_relationship
   entities              120
-  dates                 260  (2021-01-04 .. 2021-12-31)
-  rows                  31,200
+  dates                 104  (2021-08-10 .. 2021-12-31)
+  rows                  12,480
   train boundary        2021-08-09
 
 ==============================================================================
@@ -74,15 +75,15 @@ VALIDATION PROTOCOL
 
   random kfold                       +0.6954   [shuffled 5-fold over rows, time ignored]
   walk forward                       +0.6166   [expanding window, train strictly before test]
-  purged walk forward                +0.6019   [expanding window, 5-date embargo]
+  embargoed walk forward             +0.6019   [expanding window, 5-date embargo]
 
   Inflation from random splitting     +0.0935
   Removed by the embargo alone       +0.0146
 
   [FAIL]
-        FAIL: random K-fold scores +0.6954 against +0.6019 under a purged
-        walk-forward -- an inflation of +0.0935. Random splitting places
-        adjacent dates on both sides of the fold boundary, and for a
+        FAIL: random K-fold scores +0.6954 against +0.6019 under an
+        embargoed walk-forward -- an inflation of +0.0935. Random splitting
+        places adjacent dates on both sides of the fold boundary, and for a
         persistent target those are near-duplicates, so the model is
         effectively evaluated on data it trained on. Only the walk-forward
         figure describes out-of-sample performance.
@@ -134,15 +135,18 @@ READING
 
   Headline raw IC is +0.4817.
   A naive predictor (persistence) reaches -0.0086 with no model at all.
-  -- that is -2% of the headline number, available for free.
+  No naive baseline achieved a positive IC; the headline is not explained
+  by the free-score controls tested here.
 
-  Demeaned IC is +0.4686: the prediction contains real information
-  about deviations from each entity's typical level.
+  Demeaned IC is +0.4686: a substantial positive association remains
+  after removing each entity's typical level.
 
 ==============================================================================
 PROVENANCE
 ==============================================================================
 
-  git_commit            40b97b5-dirty
-  generated_at          2026-08-21T01:50:42+00:00
-  python                3.12.10
+  auditor_version         0.1.1
+  build_commit            unknown
+  audited_project_commit  unknown
+  generated_at            2026-08-25T23:06:50+00:00
+  python                  3.12.13
