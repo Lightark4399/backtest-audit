@@ -12,3 +12,16 @@ def test_cli_does_not_offer_an_in_sample_scope_option():
     assert "--scope" not in parser.format_help()
     with pytest.raises(SystemExit):
         parser.parse_args(["panel.csv", "--train-end", "2024-01-01", "--scope", "train"])
+
+
+def test_cli_accepts_explicit_audited_project_identity():
+    args = build_parser().parse_args(
+        [
+            "panel.csv",
+            "--train-end",
+            "2024-01-01",
+            "--audited-project-commit",
+            "strategy-repo@abc123",
+        ]
+    )
+    assert args.audited_project_commit == "strategy-repo@abc123"

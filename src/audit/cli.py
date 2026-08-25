@@ -52,6 +52,14 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Newey-West bandwidth (default: automatic, 4*(T/100)^(2/9))",
     )
+    ap.add_argument(
+        "--audited-project-commit",
+        default=None,
+        help=(
+            "explicit identity of the project/result being audited; omitted values "
+            "are reported as unknown and are never guessed from the working directory"
+        ),
+    )
     ap.add_argument("--json", type=Path, default=None, help="also write JSON here")
     ap.add_argument(
         "--show-naive-increment",
@@ -87,6 +95,7 @@ def main(argv: list[str] | None = None) -> int:
         demean_method=args.method,
         maxlags=args.maxlags,
         include_naive_increment=args.show_naive_increment,
+        audited_project_commit=args.audited_project_commit,
     )
 
     print(result.to_text())

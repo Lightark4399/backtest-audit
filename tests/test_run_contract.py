@@ -30,3 +30,30 @@ def test_runner_reports_and_computes_the_test_period_only():
     assert all(date > panel.train_end for date in result.rank.values.index)
     assert all(date > panel.train_end for date in result.demeaned.values.index)
 
+
+def test_provenance_never_guesses_the_audited_commit_from_cwd(tmp_path, monkeypatch):
+    panel, _ = generate_panel(skill=0.4)
+    monkeypatch.chdir(tmp_path)
+    result = run_baseline_audit(
+        panel,
+        run_alignment=False,
+        run_survivorship=False,
+        run_protocol=False,
+    )
+
+    assert result.provenance["auditor_version"]
+    assert result.provenance["build_commit"] == "unknown"
+    assert result.provenance["audited_project_commit"] == "unknown"
+    assert "git_commit" not in result.provenance
+
+
+def test_audited_commit_is_recorded_only_when_the_caller_supplies_it():
+    panel, _ = generate_panel(skill=0.4)
+    result = run_baseline_audit(
+        panel,
+        audited_project_commit="strategy-repo@abc123",
+        run_alignment=False,
+        run_survivorship=False,
+        run_protocol=False,
+    )
+    assert result.provenance["audited_project_commit"] == "strategy-repo@abc123"

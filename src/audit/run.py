@@ -4,22 +4,22 @@ Runs the metric layer over a panel and packages the results. Kept separate from
 both the metrics (which stay pure functions over data) and the report (which
 stays pure formatting) so that each can be tested without the others.
 
-The JSON output carries provenance -- git commit, configuration, timestamp -- so
-that any figure quoted from a report can be traced back to the exact code and
-settings that produced it. A number without that trail cannot be re-derived by
-someone else, which makes it an assertion rather than a result.
+The JSON output carries provenance -- auditor version, optional build commit,
+explicit audited-project identity, configuration and timestamp -- so a figure
+can be traced without guessing from the caller's working directory.
 """
 
 from __future__ import annotations
 
 import json
 import platform
-import subprocess
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from importlib.metadata import PackageNotFoundError, version
 
 import pandas as pd
 
+from ._build_info import BUILD_COMMIT
 from .audits.alignment import alignment_summary, run_alignment_audit
 from .audits.execution import audit_execution_timing
 from .audits.grouping import decompose_by_group
@@ -33,29 +33,12 @@ from .panel import Panel
 from .report.text import render_report
 
 
-def _git_commit() -> str:
-    """Current commit hash, or a marker when unavailable.
-
-    Returns a marker rather than raising: a report produced outside a git
-    checkout is still useful, it just cannot claim code provenance, and saying
-    'unknown' is more honest than omitting the field.
-    """
+def _auditor_version() -> str:
+    """Installed distribution version, or an honest marker for an unpackaged tree."""
     try:
-        out = subprocess.run(
-            ["git", "rev-parse", "--short", "HEAD"],
-            capture_output=True,
-            text=True,
-            timeout=5,
-        )
-        if out.returncode == 0:
-            dirty = subprocess.run(
-                ["git", "status", "--porcelain"], capture_output=True, text=True, timeout=5
-            )
-            suffix = "-dirty" if dirty.stdout.strip() else ""
-            return out.stdout.strip() + suffix
-    except Exception:
-        pass
-    return "unknown (not a git checkout)"
+        return version("backtest-audit")
+    except PackageNotFoundError:
+        return "unknown"
 
 
 @dataclass
@@ -151,6 +134,7 @@ def run_baseline_audit(
     run_survivorship: bool = True,
     run_protocol: bool = True,
     return_column: str = "forward_return",
+    audited_project_commit: str | None = None,
 ) -> AuditResult:
     """Run the baseline-decomposition audit on the out-of-sample test period.
 
@@ -253,7 +237,9 @@ def run_baseline_audit(
             execution = None
 
     provenance = {
-        "git_commit": _git_commit(),
+        "auditor_version": _auditor_version(),
+        "build_commit": BUILD_COMMIT or "unknown",
+        "audited_project_commit": audited_project_commit or "unknown",
         "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "python": platform.python_version(),
     }
