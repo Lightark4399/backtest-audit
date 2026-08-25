@@ -55,7 +55,7 @@ def format_scope(describe: dict) -> str:
     if describe.get("rows_dropped_incomplete"):
         lines.append(
             f"  rows dropped          {describe['rows_dropped_incomplete']:,} "
-            "(missing prediction or label)"
+            "(missing or non-finite prediction or label)"
         )
     return "\n".join(lines)
 

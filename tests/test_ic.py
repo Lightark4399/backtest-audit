@@ -203,3 +203,31 @@ def test_incomplete_rows_counted_when_dropped():
     p = Panel.from_frame(frame, train_end="2022-01-03")
     assert p.n_dropped == 2
     assert p.n_rows == 2
+
+
+def test_non_finite_rows_are_dropped_and_counted():
+    frame = pd.DataFrame(
+        {
+            "entity_id": ["A", "B", "C", "D"],
+            "event_date": ["2022-01-03"] * 4,
+            "prediction": [1.0, np.inf, 3.0, 4.0],
+            "label": [1.0, 2.0, -np.inf, 4.0],
+        }
+    )
+    panel = Panel.from_frame(frame, train_end="2022-01-03")
+    assert panel.n_dropped == 2
+    assert panel.n_rows == 2
+    assert np.isfinite(panel.data[["prediction", "label"]].to_numpy()).all()
+
+
+def test_non_finite_rows_raise_in_strict_mode():
+    frame = pd.DataFrame(
+        {
+            "entity_id": ["A"],
+            "event_date": ["2022-01-03"],
+            "prediction": [np.inf],
+            "label": [1.0],
+        }
+    )
+    with pytest.raises(PanelError, match="missing or non-finite"):
+        Panel.from_frame(frame, train_end="2022-01-03", drop_incomplete=False)
