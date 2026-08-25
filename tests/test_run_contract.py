@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import inspect
 
+import pytest
+
 from audit.run import run_baseline_audit
-from audit.synthetic import generate_panel
+from audit.synthetic import generate_drifting_panel, generate_panel
 
 
 def test_runner_exposes_no_in_sample_scope_switch():
@@ -57,3 +59,16 @@ def test_audited_commit_is_recorded_only_when_the_caller_supplies_it():
         run_protocol=False,
     )
     assert result.provenance["audited_project_commit"] == "strategy-repo@abc123"
+
+
+def test_unexpected_protocol_errors_are_not_silently_omitted(monkeypatch):
+    def broken_protocol(*args, **kwargs):
+        raise RuntimeError("protocol implementation bug")
+
+    monkeypatch.setattr("audit.run.compare_protocols", broken_protocol)
+    with pytest.raises(RuntimeError, match="implementation bug"):
+        run_baseline_audit(
+            generate_drifting_panel(),
+            run_alignment=False,
+            run_survivorship=False,
+        )

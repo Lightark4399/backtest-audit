@@ -216,10 +216,10 @@ def run_baseline_audit(
     # not an audit finding.
     protocol = None
     if run_protocol and any(c.startswith("f_") for c in panel.data.columns):
-        try:
-            protocol = compare_protocols(panel)
-        except Exception:  # a protocol that cannot be scored is omitted, not fatal
-            protocol = None
+        # Expected insufficiency is represented by an INCONCLUSIVE
+        # ProtocolComparison. Unexpected exceptions are implementation failures
+        # and must surface rather than silently deleting an audit section.
+        protocol = compare_protocols(panel)
 
     # Execution timing needs a return series. A panel carrying a non-tradeable
     # target skips it rather than producing a number about an execution that has
