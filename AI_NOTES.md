@@ -360,17 +360,95 @@ honest signal as unreadable.
 
 ---
 
+## Incident 15 — the number was right and the sentence said the opposite
+
+**What happened.** A demeaned IC of **−0.6880** was formatted as "small but
+non-zero skill beyond the level." The numerical metric was correct; the report
+translated a strongly negative association into positive-sounding evidence.
+That is the same class of polished-but-wrong output the project exists to catch,
+produced by the audit tool itself.
+
+**Diagnosis.** The interpretation branch checked `abs(value) < 0.02` and then
+`value < 0.10`. Every negative value outside the near-zero band therefore fell
+into the small-positive branch. Existing tests exercised the metric and the
+positive report path, but not the semantic input space. Code paths were covered;
+sign, boundaries and undefined states were not. The positive happy path had been
+mistaken for a complete behaviour contract.
+
+**The fix.** The report now distinguishes material negative association,
+near-zero association, small positive association, substantial positive
+association and undefined input. Negative output asks the reader to check sign
+conventions and says that treating a reversal as a signal requires separate
+out-of-sample validation; it does not recommend an ex-post inversion.
+
+**Constraint added.** Tests for interpretation functions are partitioned by
+business semantics, not merely by executable branches: negative/zero/positive,
+both sides of thresholds, finite/non-finite, defined/undefined and
+PASS/FAIL/INCONCLUSIVE. They also assert the semantic invariant connecting the
+number to the sentence. A correct statistic with an incorrect explanation is a
+failed result.
+
+---
+
+## Incident 16 — a configuration value that never controlled the result
+
+**What happened.** The CLI and `run_baseline_audit` accepted `scope=train` and
+recorded it in the output config. Raw IC and several audits respected the value,
+but demeaned IC always evaluated `test_slice()`. A report could therefore claim
+to describe training data while silently mixing training- and test-period
+numbers.
+
+**Diagnosis.** Each metric's local tests were correct, but no orchestration test
+asserted that every result in one report described the same evaluation period.
+Because the command completed successfully, the mismatch was more dangerous
+than a crash: it created plausible output with false provenance.
+
+**The fix.** Credibility verdicts are now test-period only. The CLI and runner no
+longer expose train/all options, every audit receiving a scope gets `test`, and
+the report states the actual evaluation dates and `evaluation_scope=test`.
+Lower-level metric functions retain explicit scopes for diagnostic use, outside
+the combined verdict.
+
+**Constraint added.** A setting that is recorded but does not control every
+claimed consumer is worse than no setting. Orchestration tests must verify
+cross-module contracts — scope, dates and provenance — rather than assuming
+locally correct functions compose into a truthful report.
+
+---
+
+## Incident 17 — source tests passed while the wheel could not run PIT
+
+**What happened.** All source tests and the demo passed, and a wheel could be
+built, but the wheel did not contain the DuckDB schema. From an installed wheel,
+constructing `BitemporalStore()` raised `FileNotFoundError` because runtime code
+looked for `sql/duckdb/001_schema.sql` at the repository root.
+
+**Diagnosis.** Editable installs made the repository file visible, so every
+development check exercised a shape users would not receive. Building an
+artefact was treated as sufficient without installing and executing that exact
+artefact from outside the source tree.
+
+**The fix.** The schema moved under `src/audit/sql/duckdb`, is declared as
+package data and is loaded with `importlib.resources`. CI now builds the wheel,
+installs it into a clean virtual environment, changes out of the repository and
+instantiates the PIT store.
+
+**Constraint added.** Release-shape behaviour is a separate test surface. A
+package is not verified until the built artefact is inspected, installed and
+used from a location where repository files cannot rescue it.
+
+---
+
 ## Workflow constraints
 
 The rules that emerged, applied to every subsequent session:
 
-**Tests are not to be modified to make them pass.** Stated explicitly in each
-task given to the coding agent. It has held: when a lint rule flagged an
-over-broad `pytest.raises(Exception)`, the agent stopped and asked rather than
-narrowing the assertion on its own initiative. Narrowing it to
-`duckdb.ConstraintException` was the right call — the broad form would have
-passed on a typo'd table name — but it was a decision about the test's meaning,
-and the agent correctly declined to make it unilaterally.
+**Test assertions must not be weakened merely to make an implementation pass.**
+When an intentionally changed public contract makes an old assertion incorrect,
+the test may change only with an explanation of the old behaviour, target
+behaviour and migration impact. Tests protect the correct contract, not a known
+bug. This distinction matters for the removal of the false scope option and the
+rename from purged to embargoed walk-forward.
 
 **Every metric is verified against a known-truth case before it is trusted.**
 Incidents 1, 3, 6 and 9 were all caught this way and by no other means. Reading
