@@ -60,3 +60,10 @@ def test_positive_interpretation_respects_declared_thresholds(value, expected):
 def test_non_finite_mean_declines_to_interpret():
     reading = _reading(np.nan).lower()
     assert "could not be computed" in reading
+
+
+def test_negative_best_baseline_is_not_described_as_free_positive_score():
+    baselines = pd.DataFrame({"mean": [-0.0086, -0.0090]}, index=["persistence", "ewma"])
+    reading = format_interpretation(_series(0.48, "raw"), baselines, _series(0.46)).lower()
+    assert "no naive baseline achieved a positive ic" in reading
+    assert "-2% of the headline" not in reading

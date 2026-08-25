@@ -47,6 +47,7 @@ def test_provenance_never_guesses_the_audited_commit_from_cwd(tmp_path, monkeypa
     assert result.provenance["build_commit"] == "unknown"
     assert result.provenance["audited_project_commit"] == "unknown"
     assert "git_commit" not in result.provenance
+    assert "audited_project_commit  unknown" in result.to_text()
 
 
 def test_audited_commit_is_recorded_only_when_the_caller_supplies_it():

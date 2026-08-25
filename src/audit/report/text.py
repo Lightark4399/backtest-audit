@@ -194,9 +194,18 @@ def format_interpretation(
                 "  The naive predictor BEATS the model outright: on this metric the model"
             )
             out.append("  adds nothing over doing no modelling at all.")
-        else:
+        elif raw.mean > 0 and best > 0:
             out.append(
                 f"  -- that is {best / raw.mean:.0%} of the headline number, available for free."
+            )
+        elif raw.mean > 0:
+            out.append(
+                "  No naive baseline achieved a positive IC; the headline is not explained"
+            )
+            out.append("  by the free-score controls tested here.")
+        else:
+            out.append(
+                "  The strongest naive baseline does not improve on the negative headline IC."
             )
 
     out.append("")
@@ -481,8 +490,9 @@ def render_report(
     if provenance:
         parts.append(_header("PROVENANCE"))
         parts.append("")
+        key_width = max(22, max(len(str(k)) for k in provenance) + 2)
         for k, v in provenance.items():
-            parts.append(f"  {k:<22}{v}")
+            parts.append(f"  {k:<{key_width}}{v}")
 
     parts.append("")
     return "\n".join(parts)
