@@ -269,14 +269,17 @@ class Panel:
         view = self.evaluation_view(scope)
         yield from view.groupby(DATE, sort=True)
 
-    def describe(self) -> dict:
-        """Summary used in report headers so every report states its own scope."""
+    def describe(self, scope: str = "all") -> dict:
+        """Summary of the selected view used in report headers."""
+        view = self.evaluation_view(scope)
+        dates = pd.DatetimeIndex(sorted(view[DATE].unique()))
         return {
-            "n_rows": self.n_rows,
-            "n_entities": len(self.entities),
-            "n_dates": len(self.dates),
-            "first_date": str(self.dates[0].date()),
-            "last_date": str(self.dates[-1].date()),
+            "evaluation_scope": scope,
+            "n_rows": len(view),
+            "n_entities": int(view[ENTITY].nunique()),
+            "n_dates": len(dates),
+            "first_date": str(dates[0].date()),
+            "last_date": str(dates[-1].date()),
             "train_end": str(self.train_end.date()) if self.train_end is not None else None,
             "label_name": self.label_name,
             "rows_dropped_incomplete": self.n_dropped,

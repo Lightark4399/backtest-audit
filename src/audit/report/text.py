@@ -44,6 +44,7 @@ def _header(title: str) -> str:
 def format_scope(describe: dict) -> str:
     """Scope block: what data this report is about."""
     lines = [
+        f"  evaluation scope       {describe.get('evaluation_scope', 'all')}",
         f"  label                 {describe['label_name']}",
         f"  entities              {describe['n_entities']}",
         f"  dates                 {describe['n_dates']}  "

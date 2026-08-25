@@ -1,0 +1,32 @@
+"""Integration contracts for the audit orchestrator."""
+
+from __future__ import annotations
+
+import inspect
+
+from audit.run import run_baseline_audit
+from audit.synthetic import generate_panel
+
+
+def test_runner_exposes_no_in_sample_scope_switch():
+    """A credibility verdict is out-of-sample; the runner must not advertise otherwise."""
+    assert "scope" not in inspect.signature(run_baseline_audit).parameters
+
+
+def test_runner_reports_and_computes_the_test_period_only():
+    panel, _ = generate_panel(skill=0.4)
+    result = run_baseline_audit(
+        panel,
+        run_alignment=False,
+        run_survivorship=False,
+        run_protocol=False,
+    )
+
+    assert result.config["evaluation_scope"] == "test"
+    assert "scope" not in result.config
+    assert result.scope["evaluation_scope"] == "test"
+    assert result.scope["first_date"] > str(panel.train_end.date())
+    assert all(date > panel.train_end for date in result.raw.values.index)
+    assert all(date > panel.train_end for date in result.rank.values.index)
+    assert all(date > panel.train_end for date in result.demeaned.values.index)
+
