@@ -471,8 +471,10 @@ selected for being the largest of 42, and maxima of noise are large. The Deflate
 Sharpe Ratio asks what the maximum would be under the null given N trials and the
 observed skew and kurtosis, and expresses the observed figure against it.
 
-Screening all 42 at once, three look significant individually and none survive
-FDR control.
+In the convenience screen, three look significant individually and none survive
+FDR control. That screen labels its field `iid_normal_pvalue`: it is an
+exploratory iid-normal approximation, not a strong PASS criterion. Callers with
+HAC or bootstrap p-values can pass those directly to `benjamini_hochberg`.
 
 The correction depends on an honest `n_trials`, including configurations
 abandoned early — and nothing in the returns can detect an understated count.

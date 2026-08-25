@@ -232,6 +232,7 @@ def main(argv: list[str] | None = None) -> int:
 
     screened = screen_candidates(grid)
     print()
+    print("  Exploratory iid-normal approximation (not a strong PASS criterion):")
     print(f"  Screening all 42 at once: {int(screened['naive_significant'].sum())} look")
     print(f"  significant individually, {int(screened['survives'].sum())} survive FDR control.")
 
