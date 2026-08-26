@@ -102,7 +102,7 @@ pair, mirroring the raw/demeaned IC decomposition.
 
 ### M3 — Point-in-time, survivorship, grouping
 
-**Modules.** `ingest/duckdb_store.py`, `sql/duckdb/001_schema.sql`,
+**Modules.** `ingest/duckdb_store.py`, `src/audit/sql/duckdb/001_schema.sql`,
 `audits/pit.py`, `audits/survivorship.py`, `audits/grouping.py`.
 
 **Verification.**
@@ -122,16 +122,16 @@ first survivorship generator was too weak to demonstrate anything.
 
 ## Current status
 
-95 tests. Six inflation channels, five with a dedicated module. Every module
-wired into the text and JSON reports. CI runs lint, tests, and the demo end to
-end on every push.
+Version 0.1.1 has 179 tests. The panel contract, baseline decomposition,
+alignment, point-in-time vintage comparison, survivorship, grouping, validation
+protocol, PnL, execution timing and selection-bias modules are implemented. The
+runner emits one out-of-sample test-period credibility report; it no longer
+advertises train/all scopes that some modules could not honour consistently.
 
----
-
-## Roadmap
-
-Ordered by expected value, not by ease. Nothing here blocks the project being
-complete — these are extensions, and the repository is usable without them.
+The release boundary is verified as well as the source tree: CI builds a wheel,
+installs it into a clean environment outside the repository, instantiates
+`BitemporalStore`, runs the PIT schema smoke test, then runs the demo. Runtime SQL
+is a package resource rather than an assumed repository-relative file.
 
 ### M6 — Execution timing and selection bias
 
@@ -139,33 +139,50 @@ complete — these are extensions, and the repository is usable without them.
 
 **Verification.**
 - A look-ahead signal: IC 0.878 at lag 0, 0.013 at lag 1 — flagged
-- An honest forecast: no edge at lag 0, edge at lag 1 — passes, with the profile
-  named rather than treated as anomalous
+- An honest forecast: no edge at lag 0, edge at lag 1 — named and passed
 - Decay ratio monotone in the degree of look-ahead
 - Best of 42 pure-noise candidates fails; the same returns as a single test pass
 - BH keeps genuinely strong candidates and rejects all of the noise
+- The convenience p-value is named `iid_normal_pvalue`, marked exploratory, and
+  cannot by itself produce a strong PASS
 
-**Surprise.** The first verdict logic reported the healthiest profile — no edge
-at lag 0, edge at lag 1 — as INCONCLUSIVE, because it only looked for decay. A
-pure forecast has nothing to decay *from* at lag 0. Restructured to name that
-profile explicitly.
+---
 
-### Next
+## Feature freeze
 
-**A thin PnL layer.** Signal → position → return → Sharpe, drawdown, equity
-curve, sitting on top of the existing panel contract without changing it. Not
-because Sharpe is a better metric than IC — for model-validation work it is not —
-but because "Sharpe 3.2 with a 4% drawdown" is legible to a reader who would
-skim past "demeaned IC 0.0006". The audit machinery underneath stays as it is.
+Version 0.1.1 is feature-frozen after correctness and release hardening. The
+items below are deliberately GitHub issues, not work in progress. They require a
+new milestone justified by interview feedback or a real user need.
 
-### Later
+### Future issue: true purge and CPCV
 
-### Issues, not roadmap
+Add per-sample feature and label information intervals, remove overlapping
+training rows, then generate combinatorial purged paths. The current module is
+honestly named `embargoed_walk_forward`; a date gap is not a purge.
 
-Ideas that would broaden the project without deepening its central claim:
-parameter-neighbourhood continuity (peak vs plateau), stationarity testing
-(ADF/KPSS), the spurious-regression Monte Carlo. Worth doing, not worth delaying
-a release for.
+### Future issue: TrialLedger and PBO
+
+Make every searched configuration an explicit input so winners can be traced to
+the complete candidate set. Add CSCV/PBO only after the ledger contract exists;
+never infer search size from the winning return stream.
+
+### Future issue: engine adapters
+
+Define a narrow export contract for CSV, VectorBT and Backtrader results. Do not
+embed or reproduce those engines. Missing trial, universe or timing evidence
+must yield an explicit evidence gap rather than a clean verdict.
+
+### Future issue: robust p-values for candidate screening
+
+Accept HAC or block-bootstrap p-values and pass them to
+`benjamini_hochberg`. Until then, `screen_candidates` remains an explicitly
+exploratory iid-normal approximation.
+
+### Future issue: full point-in-time training replay
+
+Rebuild every training set at its historical cutoff from the observations and
+universe then knowable. The existing PIT comparison measures evaluation-vintage
+impact and must not be described as full historical retraining.
 
 ---
 

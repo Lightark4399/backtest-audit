@@ -22,7 +22,7 @@ provision.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from pathlib import Path
+from importlib.resources import files
 
 import numpy as np
 import pandas as pd
@@ -35,7 +35,7 @@ except ImportError as exc:  # pragma: no cover - exercised only without the extr
         "Install it with: pip install duckdb"
     ) from exc
 
-SCHEMA_PATH = Path(__file__).resolve().parents[3] / "sql" / "duckdb" / "001_schema.sql"
+SCHEMA_RESOURCE = files("audit").joinpath("sql", "duckdb", "001_schema.sql")
 
 
 @dataclass
@@ -85,9 +85,9 @@ class BitemporalStore:
         self._apply_schema()
 
     def _apply_schema(self) -> None:
-        if not SCHEMA_PATH.exists():
-            raise FileNotFoundError(f"schema not found at {SCHEMA_PATH}")
-        self.con.execute(SCHEMA_PATH.read_text())
+        if not SCHEMA_RESOURCE.is_file():
+            raise FileNotFoundError(f"packaged schema not found at {SCHEMA_RESOURCE}")
+        self.con.execute(SCHEMA_RESOURCE.read_text(encoding="utf-8"))
 
     # ------------------------------------------------------------------
     # Loading

@@ -14,7 +14,6 @@ metrics:
   # removed the residual deviations are heavy-tailed enough that one extreme
   # entity can dominate a Pearson estimate for that day.
   demean_method: "spearman"
-  scope: "test"          # test | train | all
   min_cross_section: 3   # below this a daily correlation is noise, not a measurement
 
 baselines:

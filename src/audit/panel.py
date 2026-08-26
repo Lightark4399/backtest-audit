@@ -49,6 +49,7 @@ from __future__ import annotations
 from collections.abc import Iterable
 from dataclasses import dataclass
 
+import numpy as np
 import pandas as pd
 
 ENTITY = "entity_id"
@@ -132,11 +133,15 @@ class Panel:
                 "each entity may appear at most once per date"
             )
 
-        finite = out[PRED].notna() & out[LABEL].notna()
+        finite = pd.Series(
+            np.isfinite(out[PRED].to_numpy(dtype=float))
+            & np.isfinite(out[LABEL].to_numpy(dtype=float)),
+            index=out.index,
+        )
         n_dropped = int((~finite).sum())
         if n_dropped and not drop_incomplete:
             raise PanelError(
-                f"{n_dropped} row(s) with missing prediction or label; "
+                f"{n_dropped} row(s) with missing or non-finite prediction or label; "
                 "pass drop_incomplete=True to drop them"
             )
         out = out.loc[finite].copy()
@@ -169,7 +174,7 @@ class Panel:
 
     @property
     def n_dropped(self) -> int:
-        """Rows discarded during construction for missing values."""
+        """Rows discarded during construction for missing or non-finite values."""
         return getattr(self, "_n_dropped", 0)
 
     # ------------------------------------------------------------------
@@ -269,14 +274,17 @@ class Panel:
         view = self.evaluation_view(scope)
         yield from view.groupby(DATE, sort=True)
 
-    def describe(self) -> dict:
-        """Summary used in report headers so every report states its own scope."""
+    def describe(self, scope: str = "all") -> dict:
+        """Summary of the selected view used in report headers."""
+        view = self.evaluation_view(scope)
+        dates = pd.DatetimeIndex(sorted(view[DATE].unique()))
         return {
-            "n_rows": self.n_rows,
-            "n_entities": len(self.entities),
-            "n_dates": len(self.dates),
-            "first_date": str(self.dates[0].date()),
-            "last_date": str(self.dates[-1].date()),
+            "evaluation_scope": scope,
+            "n_rows": len(view),
+            "n_entities": int(view[ENTITY].nunique()),
+            "n_dates": len(dates),
+            "first_date": str(dates[0].date()),
+            "last_date": str(dates[-1].date()),
             "train_end": str(self.train_end.date()) if self.train_end is not None else None,
             "label_name": self.label_name,
             "rows_dropped_incomplete": self.n_dropped,

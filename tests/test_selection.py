@@ -159,3 +159,11 @@ def test_screen_reports_both_naive_and_corrected_counts():
     table = screen_candidates(_noise_candidates())
     assert {"naive_significant", "survives"} <= set(table.columns)
     assert table["naive_significant"].sum() >= table["survives"].sum()
+
+
+def test_screen_names_and_limits_its_iid_normal_approximation():
+    table = screen_candidates(_noise_candidates())
+    assert "iid_normal_pvalue" in table.columns
+    assert "pvalue" not in table.columns
+    assert set(table["pvalue_method"]) == {"iid_normal_approximation"}
+    assert not table["strong_pass_eligible"].any()

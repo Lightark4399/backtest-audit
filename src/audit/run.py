@@ -4,22 +4,22 @@ Runs the metric layer over a panel and packages the results. Kept separate from
 both the metrics (which stay pure functions over data) and the report (which
 stays pure formatting) so that each can be tested without the others.
 
-The JSON output carries provenance -- git commit, configuration, timestamp -- so
-that any figure quoted from a report can be traced back to the exact code and
-settings that produced it. A number without that trail cannot be re-derived by
-someone else, which makes it an assertion rather than a result.
+The JSON output carries provenance -- auditor version, optional build commit,
+explicit audited-project identity, configuration and timestamp -- so a figure
+can be traced without guessing from the caller's working directory.
 """
 
 from __future__ import annotations
 
 import json
 import platform
-import subprocess
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from importlib.metadata import PackageNotFoundError, version
 
 import pandas as pd
 
+from ._build_info import BUILD_COMMIT
 from .audits.alignment import alignment_summary, run_alignment_audit
 from .audits.execution import audit_execution_timing
 from .audits.grouping import decompose_by_group
@@ -33,29 +33,12 @@ from .panel import Panel
 from .report.text import render_report
 
 
-def _git_commit() -> str:
-    """Current commit hash, or a marker when unavailable.
-
-    Returns a marker rather than raising: a report produced outside a git
-    checkout is still useful, it just cannot claim code provenance, and saying
-    'unknown' is more honest than omitting the field.
-    """
+def _auditor_version() -> str:
+    """Installed distribution version, or an honest marker for an unpackaged tree."""
     try:
-        out = subprocess.run(
-            ["git", "rev-parse", "--short", "HEAD"],
-            capture_output=True,
-            text=True,
-            timeout=5,
-        )
-        if out.returncode == 0:
-            dirty = subprocess.run(
-                ["git", "status", "--porcelain"], capture_output=True, text=True, timeout=5
-            )
-            suffix = "-dirty" if dirty.stdout.strip() else ""
-            return out.stdout.strip() + suffix
-    except Exception:
-        pass
-    return "unknown (not a git checkout)"
+        return version("backtest-audit")
+    except PackageNotFoundError:
+        return "unknown"
 
 
 @dataclass
@@ -143,7 +126,6 @@ class AuditResult:
 def run_baseline_audit(
     panel: Panel,
     baselines: list[Baseline] | None = None,
-    scope: str = "test",
     demean_method: str = "spearman",
     maxlags: int | None = None,
     include_naive_increment: bool = False,
@@ -152,8 +134,9 @@ def run_baseline_audit(
     run_survivorship: bool = True,
     run_protocol: bool = True,
     return_column: str = "forward_return",
+    audited_project_commit: str | None = None,
 ) -> AuditResult:
-    """Run the baseline-decomposition audit (module 1).
+    """Run the baseline-decomposition audit on the out-of-sample test period.
 
     Parameters
     ----------
@@ -163,10 +146,11 @@ def run_baseline_audit(
         turns it on deliberately to show the size of the bias.
     """
     baselines = baselines if baselines is not None else default_baselines()
+    evaluation_scope = "test"
 
-    raw = raw_ic(panel, scope=scope)
-    rnk = rank_ic(panel, scope=scope)
-    table = evaluate_baselines(panel, baselines, method="spearman", scope=scope)
+    raw = raw_ic(panel, scope=evaluation_scope)
+    rnk = rank_ic(panel, scope=evaluation_scope)
+    table = evaluate_baselines(panel, baselines, method="spearman", scope=evaluation_scope)
     dm = demeaned_ic(panel, method=demean_method)
 
     inc = None
@@ -174,7 +158,7 @@ def run_baseline_audit(
     best = strongest_baseline(table)
     if best is not None:
         control = next(b for b in baselines if b.name == best)
-        inc = incremental_ic(panel, control, scope=scope, demean=True)
+        inc = incremental_ic(panel, control, scope=evaluation_scope, demean=True)
         if inc.n_dates_used == 0:
             # The strongest baseline may be the level itself, which cannot be
             # controlled for twice. Fall back to the strongest baseline that
@@ -186,7 +170,7 @@ def run_baseline_audit(
                 cand = next((b for b in baselines if b.name == name), None)
                 if cand is None:
                     continue
-                trial = incremental_ic(panel, cand, scope=scope, demean=True)
+                trial = incremental_ic(panel, cand, scope=evaluation_scope, demean=True)
                 if trial.n_dates_used > 0:
                     inc = trial
                     break
@@ -195,7 +179,7 @@ def run_baseline_audit(
 
     if include_naive_increment and best is not None:
         control = next(b for b in baselines if b.name == best)
-        naive = incremental_ic(panel, control, scope=scope, demean=False)
+        naive = incremental_ic(panel, control, scope=evaluation_scope, demean=False)
         if inc is not None:
             inc.meta["naive_undemeaned_mean"] = naive.mean
 
@@ -204,19 +188,27 @@ def run_baseline_audit(
     # The alignment audit is part of the default run rather than an opt-in extra:
     # a decomposition of a number that was never correctly aligned would be a
     # precise analysis of an artefact.
-    alignment = run_alignment_audit(panel, scope=scope) if run_alignment else None
+    alignment = (
+        run_alignment_audit(panel, scope=evaluation_scope) if run_alignment else None
+    )
 
     # Group decomposition runs only when a grouping key is present. Absence is
     # not a failure -- many panels have no natural grouping -- so it is skipped
     # silently rather than reported as an unmet check.
     grouping = None
     if group_column and group_column in panel.data.columns:
-        grouping = decompose_by_group(panel, group_col=group_column, scope=scope)
+        grouping = decompose_by_group(
+            panel, group_col=group_column, scope=evaluation_scope
+        )
 
     # Survivorship needs no extra input: attrition is visible in the panel
     # itself. On a balanced panel it correctly reports that the question cannot
     # be answered from the data.
-    survivorship = run_survivorship_audit(panel, scope=scope) if run_survivorship else None
+    survivorship = (
+        run_survivorship_audit(panel, scope=evaluation_scope)
+        if run_survivorship
+        else None
+    )
 
     # The protocol audit refits the model under different splits, so it needs
     # feature columns. Panels carrying only finished predictions skip it rather
@@ -224,10 +216,10 @@ def run_baseline_audit(
     # not an audit finding.
     protocol = None
     if run_protocol and any(c.startswith("f_") for c in panel.data.columns):
-        try:
-            protocol = compare_protocols(panel)
-        except Exception:  # a protocol that cannot be scored is omitted, not fatal
-            protocol = None
+        # Expected insufficiency is represented by an INCONCLUSIVE
+        # ProtocolComparison. Unexpected exceptions are implementation failures
+        # and must surface rather than silently deleting an audit section.
+        protocol = compare_protocols(panel)
 
     # Execution timing needs a return series. A panel carrying a non-tradeable
     # target skips it rather than producing a number about an execution that has
@@ -236,7 +228,7 @@ def run_baseline_audit(
     if return_column in panel.data.columns:
         try:
             execution = audit_execution_timing(
-                panel, return_col=return_column, scope=scope
+                panel, return_col=return_column, scope=evaluation_scope
             )
         except ValueError:
             # The audit raises ValueError when the return column is absent --
@@ -245,12 +237,14 @@ def run_baseline_audit(
             execution = None
 
     provenance = {
-        "git_commit": _git_commit(),
+        "auditor_version": _auditor_version(),
+        "build_commit": BUILD_COMMIT or "unknown",
+        "audited_project_commit": audited_project_commit or "unknown",
         "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "python": platform.python_version(),
     }
     config = {
-        "scope": scope,
+        "evaluation_scope": evaluation_scope,
         "demean_method": demean_method,
         "maxlags": maxlags if maxlags is not None else "auto",
         "baselines": [b.name for b in baselines],
@@ -262,7 +256,7 @@ def run_baseline_audit(
     }
 
     return AuditResult(
-        scope=panel.describe(),
+        scope=panel.describe(scope=evaluation_scope),
         raw=raw,
         rank=rnk,
         baseline_table=table,

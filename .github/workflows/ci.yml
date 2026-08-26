@@ -17,6 +17,13 @@ jobs:
         run: ruff check src tests
       - name: unit tests
         run: python -m pytest
+      - name: wheel clean-install PIT smoke test
+        run: |
+          python -m pip wheel . --no-deps --wheel-dir dist
+          python -m venv /tmp/audit-wheel-smoke
+          /tmp/audit-wheel-smoke/bin/pip install dist/*.whl
+          cd /tmp
+          /tmp/audit-wheel-smoke/bin/python -c "from audit.ingest.duckdb_store import BitemporalStore; BitemporalStore().close()"
       # The demo runs in CI as a smoke test: it exercises the whole pipeline
       # end to end, so a regression that unit tests miss still fails the build.
       - name: demo smoke test

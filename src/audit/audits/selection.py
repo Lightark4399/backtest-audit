@@ -28,14 +28,20 @@ N is large and the goal is a shortlist rather than a single verdict; controlling
 the false discovery rate answers the question actually being asked: of the
 signals I keep, what share are expected to be spurious?
 
-Why non-normality matters here
-------------------------------
+Where distributional assumptions differ
+-----------------------------------------
 The expected maximum under the null depends on the shape of the return
 distribution, not only on N. Strategy returns are typically negatively skewed
 with fat tails — which inflates the variance of the Sharpe estimator and
 therefore raises the bar the observed Sharpe has to clear. Ignoring skew and
 kurtosis makes the correction too lenient in exactly the cases where a correction
-matters most, so both are estimated from the returns rather than assumed away.
+matters most, so the Deflated Sharpe path estimates both from the returns.
+
+The ``benjamini_hochberg`` function is assumption-agnostic: callers may supply
+HAC or bootstrap p-values. The convenience ``screen_candidates`` function does
+not estimate those robust p-values; it uses a one-sided iid-normal approximation
+and labels that field explicitly. Its shortlist is exploratory and is never, by
+itself, evidence for a strong PASS.
 """
 
 from __future__ import annotations
@@ -247,11 +253,13 @@ def screen_candidates(
     returns_by_candidate: dict[str, pd.Series],
     fdr: float = 0.10,
 ) -> pd.DataFrame:
-    """Screen many candidate signals, reporting naive and FDR-controlled verdicts.
+    """Exploratory screen using one-sided iid-normal approximate p-values.
 
     The gap between the two columns is the point: the count of candidates that
     look significant individually, against the count that survive once the size
-    of the search is taken into account.
+    of the search is taken into account. Serial dependence and non-normality are
+    not corrected here; callers with HAC or bootstrap p-values should pass them
+    directly to ``benjamini_hochberg``.
     """
     pvalues, sharpes = {}, {}
     for name, series in returns_by_candidate.items():
@@ -263,7 +271,22 @@ def screen_candidates(
         pvalues[name] = float(1.0 - stats.norm.cdf(tstat))  # one-sided
         sharpes[name] = float(sr)
 
-    table = benjamini_hochberg(pvalues, fdr=fdr)
+    table = benjamini_hochberg(pvalues, fdr=fdr).rename(
+        columns={"pvalue": "iid_normal_pvalue"}
+    )
     table["sharpe"] = pd.Series(sharpes)
-    table["naive_significant"] = table["pvalue"] < 0.05
-    return table[["sharpe", "pvalue", "rank", "bh_threshold", "naive_significant", "survives"]]
+    table["naive_significant"] = table["iid_normal_pvalue"] < 0.05
+    table["pvalue_method"] = "iid_normal_approximation"
+    table["strong_pass_eligible"] = False
+    return table[
+        [
+            "sharpe",
+            "iid_normal_pvalue",
+            "rank",
+            "bh_threshold",
+            "naive_significant",
+            "survives",
+            "pvalue_method",
+            "strong_pass_eligible",
+        ]
+    ]

@@ -44,6 +44,7 @@ def _header(title: str) -> str:
 def format_scope(describe: dict) -> str:
     """Scope block: what data this report is about."""
     lines = [
+        f"  evaluation scope       {describe.get('evaluation_scope', 'all')}",
         f"  label                 {describe['label_name']}",
         f"  entities              {describe['n_entities']}",
         f"  dates                 {describe['n_dates']}  "
@@ -54,7 +55,7 @@ def format_scope(describe: dict) -> str:
     if describe.get("rows_dropped_incomplete"):
         lines.append(
             f"  rows dropped          {describe['rows_dropped_incomplete']:,} "
-            "(missing prediction or label)"
+            "(missing or non-finite prediction or label)"
         )
     return "\n".join(lines)
 
@@ -193,14 +194,34 @@ def format_interpretation(
                 "  The naive predictor BEATS the model outright: on this metric the model"
             )
             out.append("  adds nothing over doing no modelling at all.")
-        else:
+        elif raw.mean > 0 and best > 0:
             out.append(
                 f"  -- that is {best / raw.mean:.0%} of the headline number, available for free."
             )
+        elif raw.mean > 0:
+            out.append(
+                "  No naive baseline achieved a positive IC; the headline is not explained"
+            )
+            out.append("  by the free-score controls tested here.")
+        else:
+            out.append(
+                "  The strongest naive baseline does not improve on the negative headline IC."
+            )
 
     out.append("")
-    if demeaned.n_dates_used == 0:
+    if demeaned.n_dates_used == 0 or not np.isfinite(demeaned.mean):
         out.append("  Demeaned IC could not be computed; the decomposition is incomplete.")
+    elif demeaned.mean <= -0.02:
+        out.append(
+            f"  Demeaned IC is {demeaned.mean:+.4f}: a negative association remains after"
+        )
+        out.append(
+            "  removing the stable entity level. Check prediction and label sign conventions."
+        )
+        out.append(
+            "  This is not evidence for an inverted trading signal: using a reversal requires"
+        )
+        out.append("  separate out-of-sample validation.")
     elif abs(demeaned.mean) < 0.02:
         out.append(
             "  Demeaned IC is indistinguishable from zero: once the stable per-entity"
@@ -211,14 +232,14 @@ def format_interpretation(
         out.append("  The headline IC is measuring the level, not forecast skill.")
     elif demeaned.mean < 0.10:
         out.append(
-            f"  Demeaned IC is {demeaned.mean:+.4f}: small but non-zero skill beyond the level."
+            f"  Demeaned IC is {demeaned.mean:+.4f}: a small positive association beyond the level."
         )
         out.append("  Judge it against the free score above, not against the headline IC.")
     else:
         out.append(
-            f"  Demeaned IC is {demeaned.mean:+.4f}: the prediction contains real information"
+            f"  Demeaned IC is {demeaned.mean:+.4f}: a substantial positive association remains"
         )
-        out.append("  about deviations from each entity's typical level.")
+        out.append("  after removing each entity's typical level.")
 
     return "\n".join(out)
 
@@ -359,7 +380,7 @@ def format_pit(result) -> str:
 
 
 def format_protocol_comparison(comp) -> str:
-    """Random vs ordered vs purged splitting, scored on the same model."""
+    """Random vs ordered vs embargoed splitting, scored on the same model."""
     mark = {True: "PASS", False: "FAIL", None: "----"}[comp.passed]
     out = [_header("VALIDATION PROTOCOL"), ""]
     out.append("  Does the splitting scheme itself inflate the score?")
@@ -469,8 +490,9 @@ def render_report(
     if provenance:
         parts.append(_header("PROVENANCE"))
         parts.append("")
+        key_width = max(22, max(len(str(k)) for k in provenance) + 2)
         for k, v in provenance.items():
-            parts.append(f"  {k:<22}{v}")
+            parts.append(f"  {k:<{key_width}}{v}")
 
     parts.append("")
     return "\n".join(parts)

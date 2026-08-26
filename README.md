@@ -401,7 +401,7 @@ data it trained on.
 The audit scores the same model under shuffled K-fold, expanding-window
 walk-forward, and walk-forward with an embargo. On a panel where the
 feature-to-label relationship drifts, random splitting reads **+0.695** against
-**+0.602** for the purged walk-forward: **+0.094 of unearned score**, with the
+**+0.602** for the embargoed walk-forward: **+0.094 of unearned score**, with the
 embargo alone accounting for +0.015 of it.
 
 The conditional half is what makes this a measurement rather than a maxim. With
@@ -471,8 +471,10 @@ selected for being the largest of 42, and maxima of noise are large. The Deflate
 Sharpe Ratio asks what the maximum would be under the null given N trials and the
 observed skew and kurtosis, and expresses the observed figure against it.
 
-Screening all 42 at once, three look significant individually and none survive
-FDR control.
+In the convenience screen, three look significant individually and none survive
+FDR control. That screen labels its field `iid_normal_pvalue`: it is an
+exploratory iid-normal approximation, not a strong PASS criterion. Callers with
+HAC or bootstrap p-values can pass those directly to `benjamini_hochberg`.
 
 The correction depends on an honest `n_trials`, including configurations
 abandoned early — and nothing in the returns can detect an understated count.
@@ -481,7 +483,7 @@ That limitation is stated in the module rather than papered over.
 ### Postgres is the reference, DuckDB is what runs
 
 ``sql/001_schema.sql`` and ``sql/002_pit_views.sql`` are the reference design.
-``sql/duckdb/001_schema.sql`` is the executable port, and it is what the
+``src/audit/sql/duckdb/001_schema.sql`` is the packaged executable port, and it is what the
 integration tests run against: DuckDB is embedded, so the point-in-time tests
 need no service to provision and run in CI unchanged. The dialects agree on
 everything load-bearing here -- ``DISTINCT ON``, window frames, CTEs, CHECK
@@ -500,10 +502,10 @@ Newey-West inference, alignment audit (shuffle / forward shift / backward
 diagnostic), leaky-vs-clean example pipelines with five switchable defects,
 bitemporal store with as-of reconstruction, point-in-time vs restated
 comparison, survivorship audit via universe reconstruction, within/between group
-decomposition, validation-protocol comparison (random vs walk-forward vs purged),
+decomposition, validation-protocol comparison (random vs walk-forward vs embargoed),
 effective sample size, a thin PnL layer reporting raw and demeaned Sharpe, text
 execution-timing decay, Deflated Sharpe and FDR screening, text and JSON
-reports, offline demo, 151 tests.
+reports, offline demo, 179 tests.
 
 Possible extensions are listed with their rationale and cost in
 [PLAN.md](PLAN.md#roadmap). None of them blocks the framework being usable: the

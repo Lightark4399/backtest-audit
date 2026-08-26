@@ -1,11 +1,13 @@
 {
   "provenance": {
-    "git_commit": "40b97b5-dirty",
-    "generated_at": "2026-08-21T01:50:20+00:00",
-    "python": "3.12.10"
+    "auditor_version": "0.1.1",
+    "build_commit": "unknown",
+    "audited_project_commit": "unknown",
+    "generated_at": "2026-08-25T23:06:46+00:00",
+    "python": "3.12.13"
   },
   "config": {
-    "scope": "test",
+    "evaluation_scope": "test",
     "demean_method": "spearman",
     "maxlags": "auto",
     "baselines": [
@@ -21,10 +23,11 @@
     "return_column": "forward_return"
   },
   "scope": {
-    "n_rows": 31200,
+    "evaluation_scope": "test",
+    "n_rows": 12480,
     "n_entities": 120,
-    "n_dates": 260,
-    "first_date": "2021-01-04",
+    "n_dates": 104,
+    "first_date": "2021-08-10",
     "last_date": "2021-12-31",
     "train_end": "2021-08-09",
     "label_name": "synthetic_persistent_target",
