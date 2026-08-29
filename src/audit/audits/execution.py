@@ -158,12 +158,9 @@ def _score_lag(panel: Panel, return_col: str, lag: int, scope: str) -> LagResult
     # construction as the rest of the framework.
     pnl_frame = shifted.copy()
     pnl_frame[LABEL] = pnl_frame["_ret"]
-    try:
-        sharpe = performance(
-            Panel(data=pnl_frame, train_end=panel.train_end), scope=scope
-        ).sharpe_annualised
-    except Exception:
-        sharpe = float("nan")
+    sharpe = performance(
+        Panel(data=pnl_frame, train_end=panel.train_end), scope=scope
+    ).sharpe_annualised
 
     return LagResult(
         lag=lag,

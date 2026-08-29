@@ -150,3 +150,14 @@ def test_lag_zero_scores_more_rows_than_lag_two():
     """Later lags lose the tail of each entity's history, and that must be visible."""
     res = audit_execution_timing(generate_return_panel(lookahead=1.0))
     assert res.at_lag(0).n_rows > res.at_lag(2).n_rows
+
+
+def test_unexpected_performance_error_is_not_converted_to_nan(monkeypatch):
+    """An implementation failure must not masquerade as an inconclusive score."""
+
+    def broken_performance(*args, **kwargs):
+        raise RuntimeError("performance implementation bug")
+
+    monkeypatch.setattr("audit.audits.execution.performance", broken_performance)
+    with pytest.raises(RuntimeError, match="implementation bug"):
+        audit_execution_timing(generate_return_panel(lookahead=1.0))

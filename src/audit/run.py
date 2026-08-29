@@ -343,15 +343,9 @@ def run_baseline_audit(
     # no meaning for that target.
     execution = None
     if return_column in panel.data.columns:
-        try:
-            execution = audit_execution_timing(
-                panel, return_col=return_column, scope=evaluation_scope
-            )
-        except ValueError:
-            # The audit raises ValueError when the return column is absent --
-            # the expected case the guard above already screens for, so it is a
-            # silent skip. Anything else is a real failure and should surface.
-            execution = None
+        execution = audit_execution_timing(
+            panel, return_col=return_column, scope=evaluation_scope
+        )
     else:
         skip_reasons["execution"] = SkipReason(
             SkipReasonCode.MISSING_REQUIRED_INPUT,
