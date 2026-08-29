@@ -439,6 +439,40 @@ used from a location where repository files cannot rescue it.
 
 ---
 
+## Incident 18 — an omitted audit looked like an audit with nothing to report
+
+**What happened.** The runner silently omitted modules whose inputs were absent.
+A prediction-only panel therefore produced a polished report with no protocol,
+execution, point-in-time or selection section, but no statement that those
+questions had never been examined. A reader could not reliably distinguish that
+partial report from one whose full audit surface had run.
+
+**Diagnosis.** Incident 2 established that undefined cannot masquerade as zero:
+"not measurable" and "measured, found to be nil" are different assertions. The
+metric layer preserved that distinction, but the orchestration layer violated
+the same principle at chapter scale. ``format_pit`` existed and
+``render_report`` accepted a PIT result, satisfying the old acceptance criterion
+literally, while ``run_baseline_audit`` never supplied the result and never
+declared its absence. Tests checked present sections, not the complement of what
+the report failed to contain.
+
+**The fix.** A closed registry now names all nine shipped audit channels. Every
+text and JSON report carries a coverage manifest. Execution state is separate
+from verdict: ``SKIPPED`` means the computation did not run, while
+``INCONCLUSIVE`` means it ran but the evidence could not support a conclusion.
+Skip reasons use a three-value enum rather than free text, and PIT and selection
+are first-class attachable result slots. The demo writes an index across its
+independent known-truth cases so it proves every registered audit is visible
+without pretending those cases share one scope.
+
+**Constraint added.** A report is complete only when it describes both the
+checks it ran and the checks it did not run. The registry and report key sets
+must be identical. Missing evidence, explicit disabling and externally-required
+evidence remain machine-distinguishable, and unexpected implementation errors
+must propagate rather than being converted into a skipped section or ``NaN``.
+
+---
+
 ## Workflow constraints
 
 The rules that emerged, applied to every subsequent session:

@@ -122,11 +122,16 @@ first survivorship generator was too weak to demonstrate anything.
 
 ## Current status
 
-Version 0.1.1 has 179 tests. The panel contract, baseline decomposition,
+Version 0.1.2 has a registry-backed audit coverage manifest. The panel contract,
+baseline decomposition,
 alignment, point-in-time vintage comparison, survivorship, grouping, validation
 protocol, PnL, execution timing and selection-bias modules are implemented. The
 runner emits one out-of-sample test-period credibility report; it no longer
 advertises train/all scopes that some modules could not honour consistently.
+Every one of the nine shipped audit channels now appears in text and JSON even
+when it did not run, with a closed reason code and the evidence required to make
+it runnable. The demo writes an index across independent known-truth cases rather
+than pretending those cases share one audit scope.
 
 The release boundary is verified as well as the source tree: CI builds a wheel,
 installs it into a clean environment outside the repository, instantiates
@@ -150,7 +155,7 @@ is a package resource rather than an assumed repository-relative file.
 
 ## Feature freeze
 
-Version 0.1.1 is feature-frozen after correctness and release hardening. The
+Version 0.1.2 is feature-frozen after correctness and coverage hardening. The
 items below are deliberately GitHub issues, not work in progress. They require a
 new milestone justified by interview feedback or a real user need.
 

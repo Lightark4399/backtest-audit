@@ -1,0 +1,19 @@
+
+==============================================================================
+POINT-IN-TIME (DATA VINTAGE)
+==============================================================================
+
+  Could these features have been computed at the time?
+
+  Restated data (corrections included)             +0.6983
+  As-of data (known at the time)                   +0.5873
+  Look-ahead advantage                             +0.1110
+
+  9,433 of 31,200 observations corrected (30.2%), mean lag 5 days
+
+  [FAIL]
+        FAIL: the restated backtest scores +0.1110 higher than the
+        point-in-time one (+0.6983 vs +0.5873). 9,433 of 31,200 observations
+        (30.2%) were corrected after the fact, and the backtest consumed
+        those corrections. That advantage was not available at the time and
+        will not be available in production.

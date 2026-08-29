@@ -1,0 +1,36 @@
+{
+  "lags": [
+    {
+      "lag": 0,
+      "ic": 0.8775609417320646,
+      "sharpe": 188.12974328039834,
+      "n_dates": 104,
+      "n_rows": 12480
+    },
+    {
+      "lag": 1,
+      "ic": 0.012966919898024197,
+      "sharpe": 2.9653961337937322,
+      "n_dates": 103,
+      "n_rows": 12360
+    },
+    {
+      "lag": 2,
+      "ic": 0.0008000964119240304,
+      "sharpe": -0.2590944558447594,
+      "n_dates": 102,
+      "n_rows": 12240
+    }
+  ],
+  "decay_ratio": 0.014776090504245842,
+  "passed": false,
+  "verdict": "FAIL: IC falls from +0.8776 at lag 0 to +0.0130 at lag 1 -- only 1% survives a single period of delay. A signal computed from a close cannot trade at that close, so the lag-0 figure describes a fill that was never available. What remains at lag 1 is what the signal is actually worth.",
+  "return_column": "forward_return",
+  "collapse_ratio_threshold": 0.25,
+  "scope": "test",
+  "lags_tested": [
+    0,
+    1,
+    2
+  ]
+}

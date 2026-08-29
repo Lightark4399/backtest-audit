@@ -1,0 +1,18 @@
+{
+  "restated_ic": 0.8430741718174872,
+  "asof_ic": 0.7855510799361065,
+  "restated_demeaned_ic": 0.6983471074380165,
+  "asof_demeaned_ic": 0.5873211681366761,
+  "gap": 0.11102593930134041,
+  "gap_ratio": 0.18903786433167252,
+  "n_revisions": 9433,
+  "n_observations": 31200,
+  "revision_rate": 0.3023397435897436,
+  "mean_revision_size": 0.5824884998316565,
+  "mean_revision_lag_days": 5.0,
+  "passed": false,
+  "verdict": "FAIL: the restated backtest scores +0.1110 higher than the point-in-time one (+0.6983 vs +0.5873). 9,433 of 31,200 observations (30.2%) were corrected after the fact, and the backtest consumed those corrections. That advantage was not available at the time and will not be available in production.",
+  "n_versions_stored": 40633,
+  "asof_dates_reconstructed": 8,
+  "material_gap_threshold": 0.01
+}

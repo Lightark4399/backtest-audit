@@ -1,0 +1,20 @@
+
+==============================================================================
+EXECUTION TIMING
+==============================================================================
+
+  Could the signal have been traded when it was scored?
+
+  execution delay                 IC     ann. Sharpe
+  lag 0                      +0.8776         +188.13
+  lag 1                      +0.0130           +2.97
+  lag 2                      +0.0008           -0.26
+
+  retained at lag 1              1%
+
+  [FAIL]
+        FAIL: IC falls from +0.8776 at lag 0 to +0.0130 at lag 1 -- only 1%
+        survives a single period of delay. A signal computed from a close
+        cannot trade at that close, so the lag-0 figure describes a fill
+        that was never available. What remains at lag 1 is what the signal
+        is actually worth.
