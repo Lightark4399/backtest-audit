@@ -98,4 +98,3 @@ def verdict_from_passed(passed: bool | None) -> AuditVerdict:
     if passed is False:
         return AuditVerdict.FAIL
     return AuditVerdict.INCONCLUSIVE
-
