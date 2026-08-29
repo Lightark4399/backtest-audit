@@ -2,16 +2,20 @@
 
 from __future__ import annotations
 
+import json
 from enum import Enum
 
 import pytest
 
+from audit.audits.pit import PITResult
+from audit.audits.selection import DeflatedSharpeResult
 from audit.coverage import (
     AUDIT_REGISTRY,
     AuditRunState,
     AuditVerdict,
     SkipReasonCode,
 )
+from audit.demo import DEMO_AUDIT_CASES, write_demo_index
 from audit.run import run_baseline_audit
 from audit.synthetic import generate_panel
 
@@ -115,3 +119,70 @@ def test_text_report_declares_coverage_and_every_skip_reason():
     for name in ("point-in-time", "protocol", "execution", "selection"):
         assert name in report.lower()
     assert "SKIPPED" in report
+
+
+def _pit_result() -> PITResult:
+    return PITResult(
+        restated_ic=0.4,
+        asof_ic=0.3,
+        restated_demeaned_ic=0.2,
+        asof_demeaned_ic=0.1,
+        n_revisions=10,
+        n_observations=100,
+        revision_rate=0.1,
+        mean_revision_size=0.02,
+        mean_revision_lag_days=5.0,
+        passed=False,
+        verdict="FAIL: restated data inflated the result.",
+    )
+
+
+def _selection_result() -> DeflatedSharpeResult:
+    return DeflatedSharpeResult(
+        observed_sharpe=0.2,
+        n_trials=42,
+        n_observations=756,
+        expected_max_sharpe=0.15,
+        deflated_probability=0.4,
+        skew=0.0,
+        kurtosis=3.0,
+        passed=False,
+        verdict="FAIL: the selected result does not survive deflation.",
+    )
+
+
+@pytest.mark.parametrize(
+    ("field", "audit", "value"),
+    [
+        ("pit", "point_in_time", _pit_result()),
+        ("selection", "selection", _selection_result()),
+    ],
+)
+def test_attached_external_result_updates_manifest_and_both_reports(field, audit, value):
+    result = _minimal_result()
+    setattr(result, field, value)
+
+    serialised = result.to_dict()
+    entry = serialised["audit_coverage"]["audits"][audit]
+    assert entry["run_state"] == AuditRunState.COMPLETED.value
+    assert entry["verdict"] == AuditVerdict.FAIL.value
+    assert entry["reason_code"] is None
+    assert serialised[audit] is not None
+    assert audit.replace("_", "-") in result.to_text().lower()
+
+
+def test_demo_index_covers_every_registered_audit(tmp_path):
+    path = write_demo_index(tmp_path, DEMO_AUDIT_CASES)
+    index = json.loads(path.read_text(encoding="utf-8"))
+
+    assert set(index["audits"]) == EXPECTED_AUDITS
+    assert index["registered"] == len(EXPECTED_AUDITS)
+    assert all(entry["run_state"] == "COMPLETED" for entry in index["audits"].values())
+
+
+def test_demo_index_rejects_an_invisible_registered_audit(tmp_path):
+    incomplete = dict(DEMO_AUDIT_CASES)
+    incomplete.pop("point_in_time")
+
+    with pytest.raises(ValueError, match="point_in_time"):
+        write_demo_index(tmp_path, incomplete)

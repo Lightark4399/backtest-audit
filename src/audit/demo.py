@@ -22,15 +22,61 @@ any machine, and is deterministic given the seeds in ``SyntheticSpec``.
 from __future__ import annotations
 
 import argparse
+import json
 from pathlib import Path
 
 from .audits.execution import audit_execution_timing
+from .audits.pit import run_pit_audit
 from .audits.protocol import compare_protocols
 from .audits.selection import deflated_sharpe, screen_candidates
+from .coverage import AUDIT_REGISTRY, AuditRunState
 from .examples.pipelines import run_clean, run_leaky
+from .ingest.duckdb_store import RevisionSpec
 from .metrics.performance import compare_performance, performance
+from .report.text import format_execution_timing, format_pit, format_selection
 from .run import run_baseline_audit
 from .synthetic import generate_drifting_panel, generate_panel, generate_return_panel
+
+# This is an index of independent, known-ground-truth demo cases. It is not one
+# combined audit: execution, selection and PIT deliberately use different
+# synthetic evidence because pretending they share one scope would be false.
+DEMO_AUDIT_CASES = {
+    "baseline": {"case": "level_only", "artifact": "level_only_report.json"},
+    "alignment": {"case": "level_only", "artifact": "level_only_report.json"},
+    "point_in_time": {"case": "revised_vintage", "artifact": "pit_report.json"},
+    "survivorship": {"case": "level_only", "artifact": "level_only_report.json"},
+    "grouping": {"case": "level_only", "artifact": "level_only_report.json"},
+    "significance": {"case": "level_only", "artifact": "level_only_report.json"},
+    "protocol": {"case": "drifting_relationship", "artifact": "drifting_report.json"},
+    "execution": {"case": "impossible_close_fill", "artifact": "execution_report.json"},
+    "selection": {"case": "best_of_42_noise", "artifact": "selection_report.json"},
+}
+
+
+def write_demo_index(outdir: Path, audit_cases: dict) -> Path:
+    """Write a complete index, failing if any shipped audit is invisible."""
+    registered = {spec.key for spec in AUDIT_REGISTRY}
+    supplied = set(audit_cases)
+    if supplied != registered:
+        missing = sorted(registered - supplied)
+        extra = sorted(supplied - registered)
+        raise ValueError(f"demo audit index mismatch; missing={missing}, extra={extra}")
+
+    outdir.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "purpose": (
+            "Index of independent known-ground-truth demo cases; "
+            "not a single combined audit scope."
+        ),
+        "registered": len(AUDIT_REGISTRY),
+        "audits": {
+            key: {"run_state": AuditRunState.COMPLETED.value, **audit_cases[key]}
+            for key in audit_cases
+        },
+    }
+    path = outdir / "demo_audit_index.json"
+    path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    return path
 
 
 def _banner(text: str) -> str:
@@ -204,6 +250,13 @@ def main(argv: list[str] | None = None) -> int:
     print("  it exists, the chance to trade at it has gone. Delay execution by a")
     print("  single period -- the honest assumption -- and the entire result")
     print("  disappears. Nothing about the strategy changed; only when it traded.")
+    if args.outdir:
+        (args.outdir / "execution_report.txt").write_text(
+            format_execution_timing(exec_result), encoding="utf-8"
+        )
+        (args.outdir / "execution_report.json").write_text(
+            json.dumps(exec_result.to_dict(), indent=2), encoding="utf-8"
+        )
 
     # ---- Part 6: selection bias ----
     print(_banner("CASE 5: the best of 42 configurations, none of which work"))
@@ -235,6 +288,33 @@ def main(argv: list[str] | None = None) -> int:
     print("  Exploratory iid-normal approximation (not a strong PASS criterion):")
     print(f"  Screening all 42 at once: {int(screened['naive_significant'].sum())} look")
     print(f"  significant individually, {int(screened['survives'].sum())} survive FDR control.")
+    if args.outdir:
+        (args.outdir / "selection_report.txt").write_text(
+            format_selection(ds), encoding="utf-8"
+        )
+        (args.outdir / "selection_report.json").write_text(
+            json.dumps(ds.to_dict(), indent=2), encoding="utf-8"
+        )
+
+    # ---- Part 7: point-in-time data vintage ----
+    pit_panel, _ = generate_panel(skill=0.4)
+    observations = pit_panel.data[["entity_id", "event_date", "label"]].rename(
+        columns={"label": "value"}
+    )
+    pit_result = run_pit_audit(
+        observations,
+        observations.copy(),
+        train_end=pit_panel.train_end,
+        revisions=RevisionSpec(fraction=0.3),
+        max_asof_dates=8,
+    )
+    print(_banner("CASE 6: restated data knew corrections that had not arrived"))
+    print(format_pit(pit_result))
+    if args.outdir:
+        (args.outdir / "pit_report.txt").write_text(format_pit(pit_result), encoding="utf-8")
+        (args.outdir / "pit_report.json").write_text(
+            json.dumps(pit_result.to_dict(), indent=2), encoding="utf-8"
+        )
 
     print(_banner("SIDE BY SIDE"))
     print()
@@ -304,6 +384,7 @@ def main(argv: list[str] | None = None) -> int:
     print()
 
     if args.outdir:
+        write_demo_index(args.outdir, DEMO_AUDIT_CASES)
         print(f"Reports written to {args.outdir}/")
     return 0
 

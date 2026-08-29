@@ -120,8 +120,15 @@ class AuditResult:
                 return AuditVerdict.INCONCLUSIVE
             return AuditVerdict.PASS
 
-        result = getattr(self, key)
+        result = self.pit if key == "point_in_time" else getattr(self, key)
         return verdict_from_passed(result.passed)
+
+    def _has_attached_external_result(self, key: str) -> bool:
+        if key == "point_in_time":
+            return self.pit is not None
+        if key == "selection":
+            return self.selection is not None
+        return False
 
     def audit_coverage(self) -> dict:
         """All registered audits, including those that did not run."""
@@ -129,6 +136,10 @@ class AuditResult:
         completed = 0
         for spec in AUDIT_REGISTRY:
             skip_reason = self.skip_reasons.get(spec.key)
+            if self._has_attached_external_result(spec.key):
+                # PIT and selection are attached after the panel-only runner.
+                # Coverage is derived at render time so it cannot remain stale.
+                skip_reason = None
             if skip_reason is not None:
                 entry = AuditCoverageEntry(
                     spec=spec,
