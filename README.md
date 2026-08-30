@@ -9,8 +9,8 @@ correct time alignment at all, which is what a leak looks like from the outside.
 
 **Documentation:** [SPEC.md](SPEC.md) — the research question and what would
 count as failure · [PLAN.md](PLAN.md) — module breakdown and verification ·
-[AI_NOTES.md](AI_NOTES.md) — how it was built with AI assistance, and the nine
-things that went wrong
+[AI_NOTES.md](AI_NOTES.md) — how it was built with AI assistance, including the
+incident log and the constraints each failure added
 
 ---
 
@@ -505,12 +505,13 @@ comparison, survivorship audit via universe reconstruction, within/between group
 decomposition, validation-protocol comparison (random vs walk-forward vs embargoed),
 effective sample size, a thin PnL layer reporting raw and demeaned Sharpe, text
 execution-timing decay, Deflated Sharpe and FDR screening, text and JSON
-reports, offline demo, 179 tests.
+reports, offline demo, and a test suite built around known-truth controls.
 
 Possible extensions are listed with their rationale and cost in
 [PLAN.md](PLAN.md#roadmap). None of them blocks the framework being usable: the
-six channels of inflation it enumerates are each implemented, tested and wired
-into the report.
+nine channels of inflation it enumerates are each implemented and tested. Every
+report now carries an audit coverage manifest: a channel that did not run remains
+visible with the missing evidence or configuration decision that prevented it.
 
 ---
 

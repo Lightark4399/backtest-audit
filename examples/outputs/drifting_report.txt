@@ -11,6 +11,22 @@ SCOPE
   train boundary        2021-08-09
 
 ==============================================================================
+AUDIT COVERAGE
+==============================================================================
+
+  Completed: 6 / 9
+  Skipped:   3 / 9
+
+  point-in-time            SKIPPED
+      No bitemporal data-vintage evidence was supplied; attach a PIT audit
+      result.
+  execution                SKIPPED
+      Return column 'forward_return' was not supplied.
+  selection                SKIPPED
+      All candidate return series and the actual trial count must be
+      supplied.
+
+==============================================================================
 BASELINE DECOMPOSITION
 ==============================================================================
 
@@ -145,8 +161,8 @@ READING
 PROVENANCE
 ==============================================================================
 
-  auditor_version         0.1.1
+  auditor_version         0.1.2
   build_commit            unknown
   audited_project_commit  unknown
-  generated_at            2026-08-25T23:06:50+00:00
+  generated_at            2026-08-29T15:50:09+00:00
   python                  3.12.13

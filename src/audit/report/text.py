@@ -60,6 +60,25 @@ def format_scope(describe: dict) -> str:
     return "\n".join(lines)
 
 
+def format_audit_coverage(coverage: dict) -> str:
+    """Declare which shipped audit channels did and did not run."""
+    out = [_header("AUDIT COVERAGE"), ""]
+    out.append(f"  Completed: {coverage['completed']} / {coverage['registered']}")
+    out.append(f"  Skipped:   {coverage['skipped']} / {coverage['registered']}")
+    skipped = [
+        (key, entry)
+        for key, entry in coverage["audits"].items()
+        if entry["run_state"] == "SKIPPED"
+    ]
+    if skipped:
+        out.append("")
+        for key, entry in skipped:
+            label = key.replace("_", "-")
+            out.append(f"  {label:<24} SKIPPED")
+            out.extend(_wrap(entry["reason"], indent=6))
+    return "\n".join(out)
+
+
 def format_ic_line(label: str, series: ICSeries, indent: int = 2, prefix: str = "") -> str:
     """One metric line: mean, dispersion, hit rate, and how many dates were usable."""
     pad = " " * indent
@@ -461,11 +480,14 @@ def render_report(
     pit_result=None,
     title: str = "BACKTEST CREDIBILITY AUDIT",
     provenance: dict | None = None,
+    audit_coverage: dict | None = None,
 ) -> str:
     """Assemble the full text report."""
     parts = [_rule("="), title.center(WIDTH), _rule("=")]
     parts.append("\nSCOPE")
     parts.append(format_scope(scope))
+    if audit_coverage is not None:
+        parts.append(format_audit_coverage(audit_coverage))
     parts.append(
         format_baseline_decomposition(
             raw, rank, baseline_table, demeaned, incremental, demeaned_sig, incremental_sig

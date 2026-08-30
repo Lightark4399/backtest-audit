@@ -1,0 +1,17 @@
+
+==============================================================================
+SELECTION BIAS
+==============================================================================
+
+  Observed Sharpe                              +0.0741
+  Configurations examined                           42
+  Expected maximum from selection alone        +0.0806
+  Deflated probability                           0.430
+
+  return shape: skew -0.04, kurtosis 2.80 over 756 observations
+
+  [FAIL]
+        FAIL: Sharpe 0.07 does not clear the 0.08 expected from picking the
+        best of 42 trials (deflated probability 0.430). The reported figure
+        is consistent with having selected the luckiest configuration rather
+        than a skilful one.

@@ -1,0 +1,13 @@
+{
+  "observed_sharpe": 0.07414873159394864,
+  "n_trials": 42,
+  "n_observations": 756,
+  "expected_max_sharpe": 0.08059606860153677,
+  "deflated_probability": 0.4298775464952184,
+  "skew": -0.038397637527997006,
+  "kurtosis": 2.7981420553340666,
+  "passed": false,
+  "verdict": "FAIL: Sharpe 0.07 does not clear the 0.08 expected from picking the best of 42 trials (deflated probability 0.430). The reported figure is consistent with having selected the luckiest configuration rather than a skilful one.",
+  "sharpe_estimator_variance": 0.0013315479441544783,
+  "threshold_sharpe": 0.0
+}

@@ -1,9 +1,9 @@
 {
   "provenance": {
-    "auditor_version": "0.1.1",
+    "auditor_version": "0.1.2",
     "build_commit": "unknown",
     "audited_project_commit": "unknown",
-    "generated_at": "2026-08-25T23:06:46+00:00",
+    "generated_at": "2026-08-29T15:50:04+00:00",
     "python": "3.12.13"
   },
   "config": {
@@ -32,6 +32,100 @@
     "train_end": "2021-08-09",
     "label_name": "synthetic_persistent_target",
     "rows_dropped_incomplete": 0
+  },
+  "audit_coverage": {
+    "registered": 9,
+    "completed": 5,
+    "skipped": 4,
+    "audits": {
+      "baseline": {
+        "run_state": "COMPLETED",
+        "verdict": "NOT_APPLICABLE",
+        "reason_code": null,
+        "reason": null,
+        "required_inputs": [
+          "prediction",
+          "label"
+        ]
+      },
+      "alignment": {
+        "run_state": "COMPLETED",
+        "verdict": "PASS",
+        "reason_code": null,
+        "reason": null,
+        "required_inputs": [
+          "prediction",
+          "label",
+          "event_date"
+        ]
+      },
+      "point_in_time": {
+        "run_state": "SKIPPED",
+        "verdict": null,
+        "reason_code": "requires_external_evidence",
+        "reason": "No bitemporal data-vintage evidence was supplied; attach a PIT audit result.",
+        "required_inputs": [
+          "event_time",
+          "knowledge_time",
+          "as_of_evidence"
+        ]
+      },
+      "survivorship": {
+        "run_state": "COMPLETED",
+        "verdict": "INCONCLUSIVE",
+        "reason_code": null,
+        "reason": null,
+        "required_inputs": [
+          "dated_universe_membership"
+        ]
+      },
+      "grouping": {
+        "run_state": "COMPLETED",
+        "verdict": "PASS",
+        "reason_code": null,
+        "reason": null,
+        "required_inputs": [
+          "group_column"
+        ]
+      },
+      "significance": {
+        "run_state": "COMPLETED",
+        "verdict": "NOT_APPLICABLE",
+        "reason_code": null,
+        "reason": null,
+        "required_inputs": [
+          "dated_ic_series"
+        ]
+      },
+      "protocol": {
+        "run_state": "SKIPPED",
+        "verdict": null,
+        "reason_code": "missing_required_input",
+        "reason": "No feature columns with the f_ prefix were supplied.",
+        "required_inputs": [
+          "feature_columns:f_*"
+        ]
+      },
+      "execution": {
+        "run_state": "SKIPPED",
+        "verdict": null,
+        "reason_code": "missing_required_input",
+        "reason": "Return column 'forward_return' was not supplied.",
+        "required_inputs": [
+          "forward_return"
+        ]
+      },
+      "selection": {
+        "run_state": "SKIPPED",
+        "verdict": null,
+        "reason_code": "requires_external_evidence",
+        "reason": "All candidate return series and the actual trial count must be supplied.",
+        "required_inputs": [
+          "all_candidate_return_series",
+          "n_trials"
+        ]
+      }
+    }
   },
   "metrics": {
     "raw_ic": {
@@ -264,6 +358,7 @@
   "protocol": null,
   "execution": null,
   "selection": null,
+  "point_in_time": null,
   "survivorship": {
     "survivors_ic": 0.8399420766399376,
     "pit_ic": 0.8399420766399376,

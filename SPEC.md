@@ -93,6 +93,12 @@ of them carried the feature columns it needs. It was invisible in the shipped
 output. The criterion now requires a demo case that triggers the module, which
 is the only check that would have caught it.
 
+Wiring also includes the negative path: when a registered module did not run,
+the report must retain its slot and state the reason and required evidence.
+Absence of a section is not evidence that its check passed. ``SKIPPED`` means
+the computation never ran; ``INCONCLUSIVE`` means it ran but this dataset could
+not support a conclusion. They remain distinct because their remedies differ.
+
 **6. Its limits are documented.**
 Each module states what it cannot catch. See the falsification standard below.
 

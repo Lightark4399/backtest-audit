@@ -25,6 +25,15 @@ from .audits.execution import audit_execution_timing
 from .audits.grouping import decompose_by_group
 from .audits.protocol import compare_protocols
 from .audits.survivorship import run_survivorship_audit
+from .coverage import (
+    AUDIT_REGISTRY,
+    AuditCoverageEntry,
+    AuditRunState,
+    AuditVerdict,
+    SkipReason,
+    SkipReasonCode,
+    verdict_from_passed,
+)
 from .metrics.baselines import Baseline, default_baselines, evaluate_baselines, strongest_baseline
 from .metrics.ic import ICSeries, demeaned_ic, rank_ic, raw_ic
 from .metrics.partial import incremental_ic
@@ -58,12 +67,17 @@ class AuditResult:
     survivorship: object = None
     protocol: object = None
     execution: object = None
+    # PIT needs bitemporal observations and an as-of reconstruction, which a
+    # prediction/label panel cannot provide. It is a first-class result slot so
+    # callers can attach that external evidence without bypassing this report.
+    pit: object = None
     # Not filled by run_baseline_audit: the Deflated Sharpe needs the return
     # series of all N candidates, and n_trials must be the number of configs
     # actually swept -- which cannot be inferred from a single panel. Inventing
     # a number is the exact behaviour this audit warns about. Callers compute
     # the result themselves and attach it here before rendering.
     selection: object = None
+    skip_reasons: dict[str, SkipReason] = field(default_factory=dict)
     provenance: dict = field(default_factory=dict)
     config: dict = field(default_factory=dict)
 
@@ -83,9 +97,70 @@ class AuditResult:
             protocol_result=self.protocol,
             execution_result=self.execution,
             selection_result=self.selection,
+            pit_result=self.pit,
             title=title,
             provenance=self.provenance,
+            audit_coverage=self.audit_coverage(),
         )
+
+    def _completed_verdict(self, key: str) -> AuditVerdict:
+        if key == "baseline":
+            return AuditVerdict.NOT_APPLICABLE
+        if key == "significance":
+            return (
+                AuditVerdict.NOT_APPLICABLE
+                if self.demeaned_sig is not None
+                else AuditVerdict.INCONCLUSIVE
+            )
+        if key == "alignment":
+            summary = alignment_summary(self.alignment or [])
+            if summary["any_failed"]:
+                return AuditVerdict.FAIL
+            if summary["inconclusive"]:
+                return AuditVerdict.INCONCLUSIVE
+            return AuditVerdict.PASS
+
+        result = self.pit if key == "point_in_time" else getattr(self, key)
+        return verdict_from_passed(result.passed)
+
+    def _has_attached_external_result(self, key: str) -> bool:
+        if key == "point_in_time":
+            return self.pit is not None
+        if key == "selection":
+            return self.selection is not None
+        return False
+
+    def audit_coverage(self) -> dict:
+        """All registered audits, including those that did not run."""
+        entries: dict[str, dict] = {}
+        completed = 0
+        for spec in AUDIT_REGISTRY:
+            skip_reason = self.skip_reasons.get(spec.key)
+            if self._has_attached_external_result(spec.key):
+                # PIT and selection are attached after the panel-only runner.
+                # Coverage is derived at render time so it cannot remain stale.
+                skip_reason = None
+            if skip_reason is not None:
+                entry = AuditCoverageEntry(
+                    spec=spec,
+                    run_state=AuditRunState.SKIPPED,
+                    verdict=None,
+                    skip_reason=skip_reason,
+                )
+            else:
+                entry = AuditCoverageEntry(
+                    spec=spec,
+                    run_state=AuditRunState.COMPLETED,
+                    verdict=self._completed_verdict(spec.key),
+                )
+                completed += 1
+            entries[spec.key] = entry.to_dict()
+        return {
+            "registered": len(AUDIT_REGISTRY),
+            "completed": completed,
+            "skipped": len(AUDIT_REGISTRY) - completed,
+            "audits": entries,
+        }
 
     def to_dict(self) -> dict:
         """Machine-readable form, suitable for CI assertions."""
@@ -93,6 +168,7 @@ class AuditResult:
             "provenance": self.provenance,
             "config": self.config,
             "scope": self.scope,
+            "audit_coverage": self.audit_coverage(),
             "metrics": {
                 "raw_ic": self.raw.to_dict(),
                 "rank_ic": self.rank.to_dict(),
@@ -108,6 +184,7 @@ class AuditResult:
             "protocol": self.protocol.to_dict() if self.protocol is not None else None,
             "execution": self.execution.to_dict() if self.execution is not None else None,
             "selection": self.selection.to_dict() if self.selection is not None else None,
+            "point_in_time": self.pit.to_dict() if self.pit is not None else None,
             "survivorship": (
                 self.survivorship.to_dict() if self.survivorship is not None else None
             ),
@@ -147,6 +224,16 @@ def run_baseline_audit(
     """
     baselines = baselines if baselines is not None else default_baselines()
     evaluation_scope = "test"
+    skip_reasons: dict[str, SkipReason] = {
+        "point_in_time": SkipReason(
+            SkipReasonCode.REQUIRES_EXTERNAL_EVIDENCE,
+            "No bitemporal data-vintage evidence was supplied; attach a PIT audit result.",
+        ),
+        "selection": SkipReason(
+            SkipReasonCode.REQUIRES_EXTERNAL_EVIDENCE,
+            "All candidate return series and the actual trial count must be supplied.",
+        ),
+    }
 
     raw = raw_ic(panel, scope=evaluation_scope)
     rnk = rank_ic(panel, scope=evaluation_scope)
@@ -191,6 +278,11 @@ def run_baseline_audit(
     alignment = (
         run_alignment_audit(panel, scope=evaluation_scope) if run_alignment else None
     )
+    if not run_alignment:
+        skip_reasons["alignment"] = SkipReason(
+            SkipReasonCode.DISABLED_BY_CONFIG,
+            "Disabled by run_alignment=False.",
+        )
 
     # Group decomposition runs only when a grouping key is present. Absence is
     # not a failure -- many panels have no natural grouping -- so it is skipped
@@ -199,6 +291,16 @@ def run_baseline_audit(
     if group_column and group_column in panel.data.columns:
         grouping = decompose_by_group(
             panel, group_col=group_column, scope=evaluation_scope
+        )
+    elif group_column is None:
+        skip_reasons["grouping"] = SkipReason(
+            SkipReasonCode.DISABLED_BY_CONFIG,
+            "Disabled by group_column=None.",
+        )
+    else:
+        skip_reasons["grouping"] = SkipReason(
+            SkipReasonCode.MISSING_REQUIRED_INPUT,
+            f"Grouping column {group_column!r} was not supplied.",
         )
 
     # Survivorship needs no extra input: attrition is visible in the panel
@@ -209,6 +311,11 @@ def run_baseline_audit(
         if run_survivorship
         else None
     )
+    if not run_survivorship:
+        skip_reasons["survivorship"] = SkipReason(
+            SkipReasonCode.DISABLED_BY_CONFIG,
+            "Disabled by run_survivorship=False.",
+        )
 
     # The protocol audit refits the model under different splits, so it needs
     # feature columns. Panels carrying only finished predictions skip it rather
@@ -220,21 +327,30 @@ def run_baseline_audit(
         # ProtocolComparison. Unexpected exceptions are implementation failures
         # and must surface rather than silently deleting an audit section.
         protocol = compare_protocols(panel)
+    elif not run_protocol:
+        skip_reasons["protocol"] = SkipReason(
+            SkipReasonCode.DISABLED_BY_CONFIG,
+            "Disabled by run_protocol=False.",
+        )
+    else:
+        skip_reasons["protocol"] = SkipReason(
+            SkipReasonCode.MISSING_REQUIRED_INPUT,
+            "No feature columns with the f_ prefix were supplied.",
+        )
 
     # Execution timing needs a return series. A panel carrying a non-tradeable
     # target skips it rather than producing a number about an execution that has
     # no meaning for that target.
     execution = None
     if return_column in panel.data.columns:
-        try:
-            execution = audit_execution_timing(
-                panel, return_col=return_column, scope=evaluation_scope
-            )
-        except ValueError:
-            # The audit raises ValueError when the return column is absent --
-            # the expected case the guard above already screens for, so it is a
-            # silent skip. Anything else is a real failure and should surface.
-            execution = None
+        execution = audit_execution_timing(
+            panel, return_col=return_column, scope=evaluation_scope
+        )
+    else:
+        skip_reasons["execution"] = SkipReason(
+            SkipReasonCode.MISSING_REQUIRED_INPUT,
+            f"Return column {return_column!r} was not supplied.",
+        )
 
     provenance = {
         "auditor_version": _auditor_version(),
@@ -269,6 +385,7 @@ def run_baseline_audit(
         survivorship=survivorship,
         protocol=protocol,
         execution=execution,
+        skip_reasons=skip_reasons,
         provenance=provenance,
         config=config,
     )

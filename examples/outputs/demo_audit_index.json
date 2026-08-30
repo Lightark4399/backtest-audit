@@ -1,0 +1,51 @@
+{
+  "purpose": "Index of independent known-ground-truth demo cases; not a single combined audit scope.",
+  "registered": 9,
+  "audits": {
+    "baseline": {
+      "run_state": "COMPLETED",
+      "case": "level_only",
+      "artifact": "level_only_report.json"
+    },
+    "alignment": {
+      "run_state": "COMPLETED",
+      "case": "level_only",
+      "artifact": "level_only_report.json"
+    },
+    "point_in_time": {
+      "run_state": "COMPLETED",
+      "case": "revised_vintage",
+      "artifact": "pit_report.json"
+    },
+    "survivorship": {
+      "run_state": "COMPLETED",
+      "case": "level_only",
+      "artifact": "level_only_report.json"
+    },
+    "grouping": {
+      "run_state": "COMPLETED",
+      "case": "level_only",
+      "artifact": "level_only_report.json"
+    },
+    "significance": {
+      "run_state": "COMPLETED",
+      "case": "level_only",
+      "artifact": "level_only_report.json"
+    },
+    "protocol": {
+      "run_state": "COMPLETED",
+      "case": "drifting_relationship",
+      "artifact": "drifting_report.json"
+    },
+    "execution": {
+      "run_state": "COMPLETED",
+      "case": "impossible_close_fill",
+      "artifact": "execution_report.json"
+    },
+    "selection": {
+      "run_state": "COMPLETED",
+      "case": "best_of_42_noise",
+      "artifact": "selection_report.json"
+    }
+  }
+}

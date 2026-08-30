@@ -7,7 +7,7 @@ import inspect
 import pytest
 
 from audit.run import run_baseline_audit
-from audit.synthetic import generate_drifting_panel, generate_panel
+from audit.synthetic import generate_drifting_panel, generate_panel, generate_return_panel
 
 
 def test_runner_exposes_no_in_sample_scope_switch():
@@ -72,4 +72,20 @@ def test_unexpected_protocol_errors_are_not_silently_omitted(monkeypatch):
             generate_drifting_panel(),
             run_alignment=False,
             run_survivorship=False,
+        )
+
+
+def test_unexpected_execution_value_errors_are_not_silently_omitted(monkeypatch):
+    """The column guard handles absence; any later ValueError is a real failure."""
+
+    def broken_execution(*args, **kwargs):
+        raise ValueError("execution implementation bug")
+
+    monkeypatch.setattr("audit.run.audit_execution_timing", broken_execution)
+    with pytest.raises(ValueError, match="implementation bug"):
+        run_baseline_audit(
+            generate_return_panel(),
+            run_alignment=False,
+            run_survivorship=False,
+            run_protocol=False,
         )
