@@ -45,7 +45,7 @@ from .report.text import render_report
 def _auditor_version() -> str:
     """Installed distribution version, or an honest marker for an unpackaged tree."""
     try:
-        return version("backtest-audit")
+        return version("backtest-credibility-audit")
     except PackageNotFoundError:
         return "unknown"
 

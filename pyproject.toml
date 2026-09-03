@@ -3,7 +3,7 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "backtest-audit"
+name = "backtest-credibility-audit"
 version = "0.1.2"
 description = "Audit whether a backtest result is real, or an artefact of baselines and leakage"
 readme = "README.md"
@@ -28,7 +28,7 @@ data = ["yfinance>=0.2"]
 dev = ["pytest>=7.4", "ruff>=0.4"]
 
 [project.scripts]
-backtest-audit = "audit.cli:main"
+btca = "audit.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

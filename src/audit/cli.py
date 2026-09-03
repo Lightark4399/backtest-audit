@@ -19,7 +19,7 @@ from .run import run_baseline_audit
 
 def build_parser() -> argparse.ArgumentParser:
     ap = argparse.ArgumentParser(
-        prog="backtest-audit",
+        prog="btca",
         description=(
             "Audit a backtest result: decompose its IC into the part any naive "
             "baseline achieves for free and the part attributable to the model."

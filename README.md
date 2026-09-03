@@ -1,4 +1,4 @@
-# backtest-audit
+# backtest-credibility-audit
 
 **A tool that tells you whether your backtest result is real.**
 
@@ -139,10 +139,13 @@ make demo
 make test
 ```
 
+Install from source: this project is not published to PyPI, and the similarly
+named `backtest-audit` package there is an unrelated project.
+
 To audit your own results:
 
 ```bash
-backtest-audit predictions.csv --train-end 2024-06-30 --label-name realized_range
+btca predictions.csv --train-end 2024-06-30 --label-name realized_range
 ```
 
 The CSV needs four columns: `entity_id, event_date, prediction, label`. Any

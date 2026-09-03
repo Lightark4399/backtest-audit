@@ -6,12 +6,53 @@ from pathlib import Path
 
 import tomllib
 
+from audit.cli import build_parser
+
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def _project() -> dict:
+    return tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))["project"]
+
+
 def test_release_version_is_v012():
-    project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))["project"]
-    assert project["version"] == "0.1.2"
+    assert _project()["version"] == "0.1.2"
+
+
+def test_distribution_and_console_script_names_are_unambiguous():
+    """``backtest-audit`` on PyPI is an unrelated static-analysis tool.
+
+    A reader who runs ``pip install backtest-audit`` gets someone else's project,
+    so this distribution must keep a name of its own and the CLI must keep the
+    name the README documents.
+    """
+    project = _project()
+    assert project["name"] == "backtest-credibility-audit"
+    assert project["scripts"] == {"btca": "audit.cli:main"}
+
+
+def test_the_cli_announces_the_console_script_it_is_installed_as():
+    """``prog`` is what usage text tells a user to type, so it cannot drift."""
+    (script_name,) = _project()["scripts"]
+    assert build_parser().prog == script_name
+
+
+def test_report_provenance_reads_the_declared_distribution_name():
+    """Provenance comes from distribution metadata, not the package name.
+
+    A rename that misses this lookup does not fail: ``PackageNotFoundError`` is
+    caught and every report claims ``auditor_version`` "unknown", which is false
+    provenance rather than a crash.
+    """
+    source = (ROOT / "src" / "audit" / "run.py").read_text(encoding="utf-8")
+    assert f'version("{_project()["name"]}")' in source
+
+
+def test_readme_disambiguates_the_similarly_named_pypi_project():
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    assert "not published to PyPI" in readme
+    assert "unrelated project" in readme
+    assert "btca predictions.csv" in readme
 
 
 def test_plan_describes_the_current_test_and_module_status():
