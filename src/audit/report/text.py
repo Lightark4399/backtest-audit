@@ -22,6 +22,7 @@ import numpy as np
 import pandas as pd
 
 from ..metrics.ic import ICSeries
+from ..metrics.performance import annualisation_label
 from ..metrics.significance import SignificanceResult
 
 WIDTH = 78
@@ -418,17 +419,33 @@ def format_protocol_comparison(comp) -> str:
     return "\n".join(out)
 
 
+def execution_lag_table(result) -> list[str]:
+    """The per-lag IC and Sharpe rows, heading included.
+
+    Shared with the demo. The demo previously rendered its own copy of these
+    rows, which is how it went on printing "ann. Sharpe" over a per-period
+    figure after the heading here had been corrected: two renderings of one
+    number can always drift, and this one did.
+
+    The Sharpe is per period. The execution audit receives no observation
+    frequency, and its lag comparison is a ratio that sqrt-T scaling would
+    leave unchanged in any case.
+    """
+    rows = [f"  {'execution delay':<22}{'IC':>12}{'Sharpe (per period)':>21}"]
+    for r in result.results:
+        ic = "undefined" if not np.isfinite(r.ic) else f"{r.ic:+.4f}"
+        sh = "undefined" if not np.isfinite(r.sharpe) else f"{r.sharpe:+.4f}"
+        rows.append(f"  lag {r.lag:<18}{ic:>12}{sh:>21}")
+    return rows
+
+
 def format_execution_timing(result) -> str:
     """Decay profile as execution is delayed."""
     mark = {True: "PASS", False: "FAIL", None: "----"}[result.passed]
     out = [_header("EXECUTION TIMING"), ""]
     out.append("  Could the signal have been traded when it was scored?")
     out.append("")
-    out.append(f"  {'execution delay':<22}{'IC':>12}{'ann. Sharpe':>16}")
-    for r in result.results:
-        ic = "undefined" if not np.isfinite(r.ic) else f"{r.ic:+.4f}"
-        sh = "undefined" if not np.isfinite(r.sharpe) else f"{r.sharpe:+.2f}"
-        out.append(f"  lag {r.lag:<18}{ic:>12}{sh:>16}")
+    out.extend(execution_lag_table(result))
     out.append("")
     if np.isfinite(result.decay_ratio):
         out.append(f"  {'retained at lag 1':<22}{result.decay_ratio:>11.0%}")
@@ -439,10 +456,32 @@ def format_execution_timing(result) -> str:
 
 
 def format_selection(result) -> str:
-    """Observed Sharpe against what selection alone would produce."""
+    """Observed Sharpe against what selection alone would produce.
+
+    The observed figure is per period, and is labelled so. Reporting it under a
+    bare "Sharpe" heading left it ambiguous against the annualised figure the
+    surrounding narrative quoted, by a factor of sqrt(periods_per_year).
+    """
     mark = {True: "PASS", False: "FAIL", None: "----"}[result.passed]
     out = [_header("SELECTION BIAS"), ""]
-    out.append(f"  {'Observed Sharpe':<40}{result.observed_sharpe:>+12.4f}")
+    out.append(
+        f"  {'Observed Sharpe (per period)':<40}{result.observed_sharpe:>+12.4f}"
+    )
+    periods = getattr(result, "periods_per_year", None)
+    if periods is None:
+        # Not the same claim as zero, and not a computation that failed: the
+        # panel contract carries no observation frequency, so there is nothing
+        # to annualise by.
+        out.append(
+            "  Sharpe (annualised)  "
+            "NOT AVAILABLE -- observation frequency not supplied"
+        )
+    else:
+        annualised = result.observed_sharpe_annualised
+        out.append(
+            f"  {f'Sharpe (annualised, {annualisation_label(periods)})':<40}"
+            f"{annualised:>+12.4f}"
+        )
     out.append(f"  {'Configurations examined':<40}{result.n_trials:>12}")
     out.append(
         f"  {'Expected maximum from selection alone':<40}"

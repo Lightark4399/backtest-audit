@@ -45,25 +45,47 @@ This tool separates the two.
 skill — it knows each entity's typical level and nothing else:
 
 ```
-      annualised Sharpe             147.1
-      hit rate                     100.0%
-      maximum drawdown               0.0%
-      periods                         104
+      Sharpe (per period)         9.2651
+      Sharpe (ann. sqrt 252)       147.1
+      hit rate                    100.0%
+      peak-to-trough (score)      0.0000
+      periods                        104
+
+  These are a unit-gross scoring device, not an invested book: no
+  costs, no capacity, no constraints. The Sharpe figures are not
+  achievable returns, and peak-to-trough is the decline of the score
+  series in its own units, not a drawdown of capital.
 ```
 
-Every day profitable, no drawdown, a Sharpe no real strategy reaches. It is worth
-pausing on how convincing that table is, because none of it is earned: the book is
-long the persistently-volatile names and short the persistently-quiet ones, and
-the target barely moves.
+That last paragraph is printed with every performance block, whatever the
+figures are. An annualised Sharpe of 147 announces itself; an ordinary-looking
+one from the same costless device is the one a reader would mistake for an
+achievable return, so the caveat is unconditional rather than triggered by
+magnitude. Every heading that claims annualisation names the factor it used,
+and a test asserts that property across the demo's stdout and every report it
+writes rather than against any one of them.
+
+Every day profitable, never declining, a Sharpe no real strategy reaches. It is
+worth pausing on how convincing that table is, because none of it is earned: the
+book is long the persistently-volatile names and short the persistently-quiet
+ones, and the target barely moves.
 
 The same positions, scored against demeaned labels — the part of the target that
 actually varies:
 
 ```
-      annualised Sharpe              -4.5
-      hit rate                      37.5%
-      maximum drawdown             186.8%
+      Sharpe (per period)        -0.2809
+      Sharpe (ann. sqrt 252)        -4.5
+      hit rate                     37.5%
+      peak-to-trough (score)      2.2536
 ```
+
+Peak-to-trough was previously divided by a running peak and printed as 186.8%, a
+figure a percentage drawdown cannot reach. The panel is annualised by sqrt 252
+because the demo generates business days; the metric itself has no default
+frequency and says so when none is given. Every renderer takes that factor
+string from one place, next to the operation it describes, so no two of them can
+disagree about it.
 
 Nothing was left. The audit reaches the same verdict in IC units: raw IC +0.63,
 demeaned IC +0.0006.
@@ -463,7 +485,7 @@ like.
 
 ```
   Every one of 42 configurations is pure noise. The best, cfg12,
-  shows an annualised Sharpe of 1.18.
+  shows a Sharpe of 0.0741 per period, 1.18 annualised by sqrt 252.
 
   reported as the winner of 42 trials         prob 0.430   FAIL
   the same returns, reported as one test      prob 0.979   PASS

@@ -52,8 +52,8 @@ On a persistent, sign-constant target — realized volatility, range, volume —
 long-short book built from prediction ranks is long the high-level names and
 short the low-level ones. Because the level barely moves, that book wins *every
 single day*. Measured on the synthetic panels, a prediction with **exactly zero**
-skill produces an annualised Sharpe of **147** with a 100% hit rate and no
-drawdown at all.
+skill produces a Sharpe of **147** annualised at 252 periods per year, with a
+100% hit rate and a score series that never declines at all.
 
 That is not a strategy. It is the free component of the target, expressed in
 Sharpe units — the same thing raw IC reports, and just as misleading.
@@ -66,12 +66,29 @@ project exists to expose; showing both is the point.
 
 Annualisation
 -------------
-Sharpe is annualised by `sqrt(periods_per_year)` with a default of 252. That
-assumes independent daily returns — and the effective-sample-size machinery in
-`metrics/significance.py` exists precisely because that assumption usually fails.
-The annualised figure is therefore reported alongside the per-period figure and
-the autocorrelation of the PnL series, so the assumption stays visible rather
-than being buried in a constant.
+`periods_per_year` has no default. The panel contract is
+`(entity_id, event_date, prediction, label)` and says nothing about observation
+frequency, so a hardcoded 252 would silently assert daily data about a panel
+that might be weekly or monthly. Without it, only the per-period Sharpe is
+reported and the annualised figure is stated as unavailable — which is not the
+same claim as zero, and not the same claim as a computation that failed.
+
+When a caller does supply it, `sqrt(periods_per_year)` scaling assumes i.i.d.
+returns. Under autocorrelation the error has a direction that depends on its
+sign: positive autocorrelation inflates the annualised figure, negative
+autocorrelation deflates it (Lo, 2002, "The Statistics of Sharpe Ratios",
+*Financial Analysts Journal* 58(4), 36-52). It is therefore not an upper bound —
+that would only hold for one sign. The per-period figure, the lag-1
+autocorrelation and the HAC t-statistic are all reported alongside it so the
+assumption stays visible rather than being buried in a constant.
+
+What the score series is
+------------------------
+`pnl` accumulates into a series that starts at 1.0, but it is a *score*, not
+capital: positions are unit-gross by construction and nothing compounds. Its
+peak-to-trough decline is therefore reported in the units of that series, as
+`additive_peak_to_trough`, and never as a percentage drawdown of invested
+capital — a quantity this layer has no basis to compute.
 """
 
 from __future__ import annotations
@@ -84,6 +101,7 @@ import pandas as pd
 from ..metrics.significance import newey_west_tstat
 from ..panel import DATE, ENTITY, LABEL, PRED, Panel
 
+# Offered for callers that know their panel is daily; never applied by default.
 TRADING_DAYS = 252
 
 
@@ -95,8 +113,10 @@ class PerformanceStats:
     mean_return: float
     volatility: float
     sharpe: float
-    sharpe_annualised: float
-    max_drawdown: float
+    # None when no observation frequency was supplied: not applicable rather
+    # than zero, and distinct from a NaN produced by a failed computation.
+    sharpe_annualised: float | None
+    additive_peak_to_trough: float
     hit_rate: float
     equity_curve: pd.Series
     pnl: pd.Series
@@ -112,9 +132,9 @@ class PerformanceStats:
             "n_periods": self.n_periods,
             "mean_return": self.mean_return,
             "volatility": self.volatility,
-            "sharpe": self.sharpe,
+            "sharpe_per_period": self.sharpe,
             "sharpe_annualised": self.sharpe_annualised,
-            "max_drawdown": self.max_drawdown,
+            "additive_peak_to_trough": self.additive_peak_to_trough,
             "hit_rate": self.hit_rate,
             "turnover": self.turnover,
             "sharpe_tstat": self.sharpe_tstat,
@@ -197,31 +217,92 @@ def compute_pnl(
     return pd.DataFrame(rows).set_index("date")
 
 
-def max_drawdown(equity: pd.Series) -> float:
-    """Largest peak-to-trough decline of the equity curve, as a positive fraction.
+def additive_peak_to_trough(score_curve: pd.Series) -> float:
+    """Largest peak-to-trough decline of the additive score series, in its units.
 
-    Computed on a cumulative-sum curve rather than a compounded one, consistent
-    with the additive PnL this layer produces. Returns 0.0 for a curve that never
-    declines.
+    This is deliberately *not* a maximum drawdown. Positions here are
+    dollar-neutral and unit-gross and nothing is compounded, so the series this
+    reads is a cumulative score rather than the net asset value of an invested
+    book. Dividing by a running peak would express the decline as a fraction of
+    a quantity that is not capital, and the result can exceed 100% -- as it did,
+    reading 186.8%, on the demo's level-only panel. A reader who saw that would
+    reasonably understand a conventional equity-curve drawdown, which it is not.
+
+    So the decline is reported as an absolute difference in score units. That is
+    invariant to the arbitrary 1.0 the curve starts at, and it needs no floor on
+    the denominator, since there is no denominator.
+
+    A caller who has real capital and a compounded NAV can compute a
+    conventional maximum drawdown from it and report that under a separate key.
+    This layer does not, because it has no capital to speak of.
+
+    Returns 0.0 for a curve that never declines.
     """
-    if equity.empty:
+    if score_curve.empty:
         return float("nan")
-    running_max = equity.cummax()
-    # Guard the early part of the curve, where a peak near zero would make a
-    # relative drawdown explode; the denominator is floored at 1.0 since the
-    # curve starts there.
-    drawdown = (running_max - equity) / running_max.clip(lower=1.0)
-    return float(drawdown.max())
+    return float((score_curve.cummax() - score_curve).max())
+
+
+def annualisation_label(periods_per_year: int | None) -> str:
+    """How ``annualise_sharpe`` scales, as text, so a label cannot disagree with it.
+
+    Every renderer takes its factor string from here rather than composing one.
+    Four descriptions of this single fact had already drifted apart -- a lag
+    table headed "ann. Sharpe", a comparison table headed "raw (ann.)", a block
+    headed "annualised x 252" and a sentence reading "annualised at 252" -- all
+    of them describing one multiplication by sqrt(252). Two named no factor and
+    two named the period count as though it were the multiplier.
+
+    Sharing the string is what makes them agree. An assertion that each names
+    *a* factor cannot tell whether it named the right one, and the third and
+    fourth of those survived exactly such an assertion.
+    """
+    if periods_per_year is None:
+        return "not annualised"
+    return f"sqrt {periods_per_year}"
+
+
+def annualise_sharpe(sharpe: float, periods_per_year: int | None) -> float | None:
+    """Scale a per-period Sharpe by ``sqrt(periods_per_year)``.
+
+    Returns ``None`` when no frequency was supplied. That is a different claim
+    from 0.0 and from NaN: the figure is not applicable, rather than nil or
+    uncomputable. See the module docstring on why there is no default, and on
+    the direction of the i.i.d. error under autocorrelation.
+
+    There is deliberately no upper clamp, and no threshold above which the
+    figure is suppressed as implausible -- the demo's zero-skill panel annualises
+    to 147 and that number is printed. Incident 12 in ``AI_NOTES.md`` is that
+    same figure: the temptation was to treat it as a bug and adjust until it
+    looked reasonable, and it was correct. Suppression would also gate on
+    "implausibly large", which cannot be estimated without bias from the data at
+    hand, so by the repository's own rule it may be context but never a gate --
+    and the gate would sit on the path real panels take, hiding the diagnostic
+    exactly when a pipeline error makes it fire hardest. Callers who need a
+    plausibility judgement should make it against the raw/demeaned pair, which
+    is where the information is.
+    """
+    if periods_per_year is None:
+        return None
+    if not np.isfinite(sharpe):
+        return float("nan")
+    return float(sharpe * np.sqrt(periods_per_year))
 
 
 def performance(
     panel: Panel,
     scope: str = "test",
     pred_col: str = PRED,
-    periods_per_year: int = TRADING_DAYS,
+    periods_per_year: int | None = None,
     demean_labels: bool = False,
 ) -> PerformanceStats:
-    """Full performance summary for a panel of predictions."""
+    """Full performance summary for a panel of predictions.
+
+    ``periods_per_year`` has no default: the panel contract does not carry an
+    observation frequency, so one cannot be assumed. Supplied, it adds an
+    annualised Sharpe alongside the per-period figure; omitted, the annualised
+    figure is ``None`` and the report says so explicitly.
+    """
     table = compute_pnl(
         panel, scope=scope, pred_col=pred_col, demean_labels=demean_labels
     )
@@ -242,16 +323,14 @@ def performance(
         mean_return=mean,
         volatility=vol,
         sharpe=sharpe,
-        sharpe_annualised=(
-            sharpe * np.sqrt(periods_per_year) if np.isfinite(sharpe) else float("nan")
-        ),
-        max_drawdown=max_drawdown(equity),
+        sharpe_annualised=annualise_sharpe(sharpe, periods_per_year),
+        additive_peak_to_trough=additive_peak_to_trough(equity),
         hit_rate=float((pnl > 0).mean()),
         equity_curve=equity,
         pnl=pnl,
         turnover=float(table["turnover"].mean()),
         # The naive t-statistic on the PnL series, and the HAC-corrected one.
-        # Reporting both keeps visible the gap that annualising by sqrt(252)
+        # Reporting both keeps visible the gap that sqrt-T annualisation
         # silently assumes away.
         sharpe_tstat=sig.naive_tstat,
         sharpe_tstat_hac=sig.hac_tstat,
@@ -269,7 +348,7 @@ def performance(
 def compare_performance(
     panels: dict[str, Panel],
     scope: str = "test",
-    periods_per_year: int = TRADING_DAYS,
+    periods_per_year: int | None = None,
 ) -> pd.DataFrame:
     """Performance table for several panels, in both raw and demeaned form.
 
@@ -277,6 +356,10 @@ def compare_performance(
     conventional backtest would print; the demeaned Sharpe is what remains once
     the persistent level is removed. Showing only the first would reproduce the
     deception the framework exists to expose.
+
+    Sharpe columns are per period and named as such. Annualised columns appear
+    only when ``periods_per_year`` is supplied, so a reader can never mistake
+    one for the other by reading a bare ``sharpe_raw`` heading.
     """
     rows = {}
     for name, panel in panels.items():
@@ -286,14 +369,17 @@ def compare_performance(
                 panel, scope=scope, periods_per_year=periods_per_year, demean_labels=True
             )
             rows[name] = {
-                "sharpe_raw": raw.sharpe_annualised,
-                "sharpe_demeaned": dm.sharpe_annualised,
+                "sharpe_raw_per_period": raw.sharpe,
+                "sharpe_demeaned_per_period": dm.sharpe,
                 "hit_rate_raw": raw.hit_rate,
                 "hit_rate_demeaned": dm.hit_rate,
-                "max_drawdown_demeaned": dm.max_drawdown,
+                "additive_peak_to_trough_demeaned": dm.additive_peak_to_trough,
                 "turnover": raw.turnover,
                 "n_periods": raw.n_periods,
             }
+            if periods_per_year is not None:
+                rows[name]["sharpe_raw_annualised"] = raw.sharpe_annualised
+                rows[name]["sharpe_demeaned_annualised"] = dm.sharpe_annualised
         except Exception as exc:  # a panel that cannot be scored is shown, not fatal
             rows[name] = {"error": f"{type(exc).__name__}: {exc}"}
     return pd.DataFrame(rows).T

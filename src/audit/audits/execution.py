@@ -83,7 +83,9 @@ class LagResult:
         return {
             "lag": self.lag,
             "ic": self.ic,
-            "sharpe": self.sharpe,
+            # The key carries the scale: a reader of the JSON has nothing
+            # else telling them which of the two this is.
+            "sharpe_per_period": self.sharpe,
             "n_dates": self.n_dates,
             "n_rows": self.n_rows,
         }
@@ -155,12 +157,14 @@ def _score_lag(panel: Panel, return_col: str, lag: int, scope: str) -> LagResult
 
     # Sharpe comes from the shared PnL layer with the shifted return standing in
     # as the label, so the execution comparison uses exactly the same position
-    # construction as the rest of the framework.
+    # construction as the rest of the framework. It is per period: this audit
+    # receives no observation frequency, and the comparison across lags is a
+    # ratio, which sqrt-T scaling would leave unchanged anyway.
     pnl_frame = shifted.copy()
     pnl_frame[LABEL] = pnl_frame["_ret"]
     sharpe = performance(
         Panel(data=pnl_frame, train_end=panel.train_end), scope=scope
-    ).sharpe_annualised
+    ).sharpe
 
     return LagResult(
         lag=lag,

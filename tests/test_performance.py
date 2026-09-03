@@ -15,9 +15,11 @@ import pytest
 from audit.examples.pipelines import run_clean, run_leaky
 from audit.metrics.ic import demeaned_ic, raw_ic
 from audit.metrics.performance import (
+    TRADING_DAYS,
+    additive_peak_to_trough,
+    annualise_sharpe,
     compare_performance,
     compute_pnl,
-    max_drawdown,
     performance,
     rank_positions,
 )
@@ -119,13 +121,71 @@ def test_sign_flipped_prediction_reverses_pnl():
     assert np.sign(a.mean_return) != np.sign(b.mean_return)
 
 
-def test_max_drawdown_is_zero_for_a_monotone_curve():
-    assert max_drawdown(pd.Series([1.0, 1.1, 1.2, 1.5])) == pytest.approx(0.0)
+def test_additive_peak_to_trough_is_zero_for_a_monotone_curve():
+    assert additive_peak_to_trough(pd.Series([1.0, 1.1, 1.2, 1.5])) == pytest.approx(0.0)
 
 
-def test_max_drawdown_measures_peak_to_trough():
+def test_additive_peak_to_trough_measures_the_decline_in_score_units():
+    """Renamed from ``max_drawdown``, and rescaled from a fraction to score units.
+
+    Old behaviour: the decline was divided by the running peak (floored at 1.0),
+    so this curve read 0.5 and the quantity presented as a percentage drawdown.
+    Target behaviour: the decline is an absolute difference in the units of the
+    additive score series, so the same curve reads 1.0. The peak of 2.0 falling
+    to 1.0 is a decline of 1.0 score units; calling it "50%" invited a reader to
+    understand a halving of capital, which never happened -- positions are
+    unit-gross and nothing compounds.
+    Migration impact: any caller reading ``max_drawdown`` as a fraction must
+    read ``additive_peak_to_trough`` as a magnitude instead. Values are no
+    longer bounded by 1.0, and were never bounded by it in practice -- the
+    demo's level-only panel reported 186.8%.
+    """
     curve = pd.Series([1.0, 2.0, 1.0, 3.0])
-    assert max_drawdown(curve) == pytest.approx(0.5)
+    assert additive_peak_to_trough(curve) == pytest.approx(1.0)
+
+
+# ----------------------------------------------------------------------
+# Observation frequency: supplied and not supplied
+# ----------------------------------------------------------------------
+def test_annualised_sharpe_appears_when_the_frequency_is_supplied():
+    """Detection half: a caller that knows its frequency gets both figures."""
+    p, _ = generate_panel(skill=0.5)
+    stats = performance(p, demean_labels=True, periods_per_year=TRADING_DAYS)
+
+    assert np.isfinite(stats.sharpe)
+    assert stats.sharpe_annualised == pytest.approx(stats.sharpe * np.sqrt(TRADING_DAYS))
+    assert stats.to_dict()["periods_per_year"] == TRADING_DAYS
+
+
+def test_no_annualised_figure_is_emitted_without_a_frequency():
+    """Control half: the honest case must not produce a number to misread.
+
+    ``None`` rather than 0.0 or NaN. The panel contract carries no observation
+    frequency, so the figure is not applicable -- which is a different claim
+    from nil, and from a computation that was attempted and failed.
+    """
+    p, _ = generate_panel(skill=0.5)
+    stats = performance(p, demean_labels=True)
+
+    assert np.isfinite(stats.sharpe), "the per-period figure is still reported"
+    assert stats.sharpe_annualised is None
+    assert stats.sharpe_annualised != 0.0
+
+    emitted = stats.to_dict()
+    assert emitted["sharpe_annualised"] is None
+    assert emitted["periods_per_year"] is None
+
+    table = compare_performance({"only": p})
+    assert "sharpe_raw_per_period" in table.columns
+    assert not [c for c in table.columns if "annualised" in c]
+
+
+def test_annualise_sharpe_keeps_undefined_and_unavailable_apart():
+    """NaN means "could not compute"; None means "no frequency was supplied"."""
+    assert annualise_sharpe(0.1, None) is None
+    assert annualise_sharpe(float("nan"), None) is None
+    assert np.isnan(annualise_sharpe(float("nan"), TRADING_DAYS))
+    assert annualise_sharpe(0.1, 252) == pytest.approx(0.1 * np.sqrt(252))
 
 
 def test_turnover_is_reported():
@@ -161,12 +221,17 @@ def test_zero_skill_shows_an_absurd_raw_sharpe_and_a_nil_demeaned_one():
     """
     p, _ = generate_panel(skill=0.0, level_leak=1.0)
 
-    raw = performance(p, demean_labels=False)
-    dm = performance(p, demean_labels=True)
+    # The frequency is now stated rather than assumed. Old behaviour: annualised
+    # by a default of 252. Target behaviour: no default, so this test says what
+    # its generated panel is -- `generate_panel` builds business days. Migration
+    # impact: the thresholds below are unchanged, because the panel is the same
+    # daily panel it always was; only the assumption is now visible.
+    raw = performance(p, demean_labels=False, periods_per_year=TRADING_DAYS)
+    dm = performance(p, demean_labels=True, periods_per_year=TRADING_DAYS)
 
     assert raw.sharpe_annualised > 20, "level alone should look spectacular"
     assert raw.hit_rate > 0.95
-    assert raw.max_drawdown == pytest.approx(0.0)
+    assert raw.additive_peak_to_trough == pytest.approx(0.0)
 
     assert dm.sharpe_annualised < 10, "no skill should survive demeaning"
     assert dm.hit_rate < 0.7
@@ -193,13 +258,24 @@ def test_demeaned_sharpe_ranks_panels_like_demeaned_ic():
 
 
 def test_compare_performance_reports_both_columns():
+    """Columns renamed to carry their scale.
+
+    Old behaviour: ``sharpe_raw`` and ``sharpe_demeaned`` held annualised
+    figures under names that said neither. Target behaviour: the per-period
+    columns are named ``_per_period``, and annualised columns appear only when a
+    frequency is supplied. Migration impact: a reader of the old names gets a
+    KeyError rather than a number on the wrong scale, which is the point.
+    """
     table = compare_performance({"clean": run_clean(), "leaky": run_leaky()})
-    assert {"sharpe_raw", "sharpe_demeaned"} <= set(table.columns)
-    assert table.loc["leaky", "sharpe_demeaned"] > table.loc["clean", "sharpe_demeaned"]
+    assert {"sharpe_raw_per_period", "sharpe_demeaned_per_period"} <= set(table.columns)
+    assert (
+        table.loc["leaky", "sharpe_demeaned_per_period"]
+        > table.loc["clean", "sharpe_demeaned_per_period"]
+    )
 
 
 def test_hac_statistic_is_reported_alongside_the_sharpe():
-    """Annualising by sqrt(252) assumes independence; the report must not hide that."""
+    """sqrt-T annualisation assumes i.i.d.; the report must not hide that."""
     p, _ = generate_panel(skill=0.5)
     stats = performance(p, demean_labels=True)
     assert np.isfinite(stats.sharpe_tstat)

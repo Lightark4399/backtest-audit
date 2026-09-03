@@ -133,10 +133,22 @@ def test_panel_without_returns_raises_with_guidance():
         audit_execution_timing(p)
 
 
-def test_sharpe_is_reported_at_every_lag():
+def test_sharpe_is_reported_at_every_lag_with_its_scale():
+    """The serialised key was renamed to carry the scale.
+
+    Old behaviour: ``to_dict()`` emitted ``"sharpe"``, a correct per-period
+    figure under a name that said nothing about which scale it was on. A reader
+    of execution_report.json had no way to tell it from an annualised one.
+    Target behaviour: the key is ``"sharpe_per_period"``. The Python attribute
+    ``LagResult.sharpe`` is unchanged, since the ambiguity was in the rendered
+    artefact rather than in the code that reads it.
+    Migration impact: anything parsing the JSON by the old key gets a KeyError
+    rather than a number whose scale it has guessed.
+    """
     res = audit_execution_timing(generate_return_panel(lookahead=1.0))
     for r in res.results:
-        assert "sharpe" in r.to_dict()
+        assert "sharpe_per_period" in r.to_dict()
+        assert "sharpe" not in r.to_dict()
 
 
 def test_result_serialises():

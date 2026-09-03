@@ -52,13 +52,24 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from ..metrics.performance import annualise_sharpe
+
 # Euler-Mascheroni constant, used in the expected-maximum approximation.
 EULER_GAMMA = 0.5772156649015329
 
 
 @dataclass
 class DeflatedSharpeResult:
-    """Observed Sharpe against the maximum expected from selection alone."""
+    """Observed Sharpe against the maximum expected from selection alone.
+
+    Every Sharpe here is **per period**. The deflation compares an observed
+    Sharpe against the maximum expected from selection over ``n_observations``,
+    so both sides must be on the per-period scale; annualising either would
+    break the comparison. The annualised figure is carried separately, and only
+    when a caller supplied the observation frequency, because a report that
+    prints one number under a bare "Sharpe" heading leaves a reader unable to
+    tell which of the two by a factor of sqrt(periods_per_year) it is.
+    """
 
     observed_sharpe: float
     n_trials: int
@@ -69,14 +80,18 @@ class DeflatedSharpeResult:
     kurtosis: float
     passed: bool | None
     verdict: str
+    periods_per_year: int | None = None
+    observed_sharpe_annualised: float | None = None
     detail: dict = field(default_factory=dict)
 
     def to_dict(self) -> dict:
         return {
-            "observed_sharpe": self.observed_sharpe,
+            "observed_sharpe_per_period": self.observed_sharpe,
+            "observed_sharpe_annualised": self.observed_sharpe_annualised,
+            "periods_per_year": self.periods_per_year,
             "n_trials": self.n_trials,
             "n_observations": self.n_observations,
-            "expected_max_sharpe": self.expected_max_sharpe,
+            "expected_max_sharpe_per_period": self.expected_max_sharpe,
             "deflated_probability": self.deflated_probability,
             "skew": self.skew,
             "kurtosis": self.kurtosis,
@@ -129,6 +144,7 @@ def deflated_sharpe(
     returns: pd.Series | np.ndarray,
     n_trials: int,
     threshold_sharpe: float = 0.0,
+    periods_per_year: int | None = None,
 ) -> DeflatedSharpeResult:
     """Probability the observed Sharpe exceeds what selection alone would produce.
 
@@ -136,6 +152,10 @@ def deflated_sharpe(
     count, including the ones abandoned early. Understating it is the easiest way
     to make this correction say what one wants, and there is no way to detect that
     from the returns.
+
+    ``periods_per_year`` does not enter the computation, which must stay on the
+    per-period scale. It only lets the report state the annualised figure a
+    reader is otherwise left to infer.
     """
     x = np.asarray(pd.Series(returns).dropna(), dtype=float)
     n = x.size
@@ -151,6 +171,7 @@ def deflated_sharpe(
             kurtosis=float("nan"),
             passed=None,
             verdict=f"INCONCLUSIVE: {n} observations is too few to estimate a Sharpe.",
+            periods_per_year=periods_per_year,
         )
 
     mean, sd = float(x.mean()), float(x.std(ddof=1))
@@ -175,24 +196,24 @@ def deflated_sharpe(
     elif prob > 0.95:
         passed = True
         verdict = (
-            f"PASS: Sharpe {observed:.2f} over {n_trials} trials, against an "
-            f"expected maximum of {benchmark:.2f} from selection alone. "
+            f"PASS: Sharpe {observed:.2f} per period over {n_trials} trials, against "
+            f"an expected maximum of {benchmark:.2f} from selection alone. "
             f"Deflated probability {prob:.3f} -- the result survives the "
             "correction for having chosen the best of several candidates."
         )
     elif prob > 0.5:
         passed = None
         verdict = (
-            f"INCONCLUSIVE: Sharpe {observed:.2f} against a selection benchmark "
-            f"of {benchmark:.2f}, deflated probability {prob:.3f}. Above the "
-            "benchmark but not decisively; more out-of-sample data is the only "
+            f"INCONCLUSIVE: Sharpe {observed:.2f} per period against a selection "
+            f"benchmark of {benchmark:.2f}, deflated probability {prob:.3f}. Above "
+            "the benchmark but not decisively; more out-of-sample data is the only "
             "thing that settles this."
         )
     else:
         passed = False
         verdict = (
-            f"FAIL: Sharpe {observed:.2f} does not clear the {benchmark:.2f} "
-            f"expected from picking the best of {n_trials} trials "
+            f"FAIL: Sharpe {observed:.2f} per period does not clear the "
+            f"{benchmark:.2f} expected from picking the best of {n_trials} trials "
             f"(deflated probability {prob:.3f}). The reported figure is "
             "consistent with having selected the luckiest configuration rather "
             "than a skilful one."
@@ -208,9 +229,11 @@ def deflated_sharpe(
         kurtosis=kurt,
         passed=passed,
         verdict=verdict,
+        periods_per_year=periods_per_year,
+        observed_sharpe_annualised=annualise_sharpe(observed, periods_per_year),
         detail={
-            "sharpe_estimator_variance": var_sr,
-            "threshold_sharpe": threshold_sharpe,
+            "sharpe_per_period_estimator_variance": var_sr,
+            "threshold_sharpe_per_period": threshold_sharpe,
         },
     )
 
@@ -274,13 +297,13 @@ def screen_candidates(
     table = benjamini_hochberg(pvalues, fdr=fdr).rename(
         columns={"pvalue": "iid_normal_pvalue"}
     )
-    table["sharpe"] = pd.Series(sharpes)
+    table["sharpe_per_period"] = pd.Series(sharpes)
     table["naive_significant"] = table["iid_normal_pvalue"] < 0.05
     table["pvalue_method"] = "iid_normal_approximation"
     table["strong_pass_eligible"] = False
     return table[
         [
-            "sharpe",
+            "sharpe_per_period",
             "iid_normal_pvalue",
             "rank",
             "bh_threshold",

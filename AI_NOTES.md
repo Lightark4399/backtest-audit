@@ -473,6 +473,134 @@ must propagate rather than being converted into a skipped section or ``NaN``.
 
 ---
 
+## Incident 19 — the numbers were right and both labels were wrong
+
+**What happened.** Two quantities in the PnL layer were correctly computed and
+incorrectly named.
+
+The first was "maximum drawdown". Positions are dollar-neutral and unit-gross,
+and the layer accumulates an additive score series; nothing is invested and
+nothing compounds. Dividing that series' peak-to-trough decline by its running
+peak produced a figure presented as a percentage, and on the demo's level-only
+panel it read **186.8%**. A drawdown of invested capital cannot exceed 100%, so
+the number was either impossible or not what its label said. It was the second.
+
+The second was "Observed Sharpe" in the selection report, printed as **+0.0741**
+while the README narrative for the same case said "annualised Sharpe of 1.18".
+Both were correct: the Deflated Sharpe must be computed on per-period returns,
+and 0.0741 x sqrt(252) = 1.18. The label named neither scale, so the two numbers
+differed by a factor of 15.9 under one heading.
+
+**Why it is the harder case.** Incident 15 was a correct statistic with an
+incorrect sentence, and this is the same class one level down: a correct
+statistic with an incorrect *name*. It is harder to notice, because a wrong
+number can be checked against a known-truth case and a wrong name cannot. Every
+test passed. The arithmetic was right in both instances, and would have stayed
+right through any amount of numerical verification. What failed was the claim
+the report made about what it had computed — which is precisely the failure this
+project exists to detect in other people's backtests.
+
+**The fix.** The drawdown is renamed `additive_peak_to_trough` and reported in
+the units of the score series, with the report stating what it is and what it is
+not. The division by a running peak is gone, along with the floor of 1.0 that
+existed only to stop the ratio exploding — a guard against a symptom of the
+wrong formulation.
+
+For the Sharpe, `periods_per_year` lost its default of 252. The panel contract
+is four columns and carries no observation frequency, so a default asserted
+daily data about panels that might be weekly. Without a frequency the report
+prints the per-period figure and states `NOT AVAILABLE -- observation frequency
+not supplied`; with one it prints both and names the factor. The docstring
+records that sqrt-T scaling assumes i.i.d. returns and that the error's
+direction follows the sign of the autocorrelation — positive inflates, negative
+deflates (Lo 2002). It is not an upper bound; that would hold for one sign only.
+
+**The part that took three rounds: the test named a place, not a property.**
+Renaming the data showed how many places rendered it. The lag table had two
+renderings and the comparison table a third, and each round of fixing corrected
+only the one that had been noticed — the report formatter, then the demo's copy
+of the lag table still headed "ann. Sharpe", then the demo's comparison table
+headed "raw (ann.)". The test written after the first round asserted that "ann."
+appeared nowhere in the execution report. It passed while a second surface was
+wrong, because the assertion had been scoped to where the defect was last seen.
+
+A fourth shape survived even that. ``execution_report.json`` carried
+``"sharpe": 11.85`` — correct, per period, and silent about which scale it was
+on. It passed a check that only constrained lines *claiming* annualisation,
+since a bare name claims nothing. The assertion now covers both shapes across
+every surface a demo run produces, stdout and all seventeen files: a claim of
+annualisation must name its factor, and a reported Sharpe must declare its
+scale. Both halves are mutation-tested, because a check of this kind that cannot
+fail is the thing it is supposed to prevent.
+
+A fifth shape escaped even the widened check. The narrative sentence beside the
+selection report read "1.18 annualised at 252" while the tables it sat next to
+had been corrected to say sqrt(252). It passed because the assertion required a
+claim to name *a* factor, and this one named a number — the period count, as
+though it were the multiplier. Checking that a scale was declared is not
+checking that the declared scale is the one applied.
+
+The fix is not a stricter pattern. Every renderer now takes its factor string
+from ``annualisation_label``, which lives beside ``annualise_sharpe``, so the
+words and the operation cannot drift apart without being edited together; the
+assertion requires that shared label rather than any number, and a separate test
+checks the label against the arithmetic it describes. The same de-duplication
+fixed the lag table two shapes earlier. One test was itself pinning the label as
+a literal string, and was rewritten to derive it.
+
+**A limit of the check, recorded rather than papered over.** A renderer holds a
+string and a value, not the computation that produced them. It cannot verify
+that a prose sentence describes the operation behind the number beside it: a
+sentence quoting the wrong figure, or describing in its own words a factor it
+did not apply, remains unreachable from a rendering test. Sharing the string is
+what closes that gap, as far as it can be closed. A pattern broad enough to look
+like it closed the rest would only give false confidence.
+
+**Constraint added.** Scope an assertion to the property, not to the place the
+property was last violated. A test named after a location passes as soon as the
+defect moves, and a rename moves it. Where one quantity is rendered more than
+once, the renderings are shared rather than checked for agreement.
+
+**Audit item for sibling repositories.** This is a reusable failure class, so by
+the rule in ``CLAUDE.md`` it creates an item for ``factor-zoo-audit`` rather than
+staying here: any assertion phrased against a named file or report, where the
+property it defends applies to every rendered surface. That repository is not
+edited from here; the item is recorded so it is not lost.
+
+---
+
+**A decision recorded rather than defaulted.** Removing the hardcoded factor
+raised a question the parameter did not settle: whether a synthetic panel built
+to be impossible should print an annualised Sharpe of 147 at all. It should, and
+no threshold suppresses it. Incident 12 is that number, and the resolution there
+was that it is correct and belongs in the output; a magnitude clamp would be the
+same adjustment the incident rejected. "Implausibly large" is also not estimable
+without bias from the data at hand, which by incident 4's constraint makes it
+context and never a gate — and the gate would apply to real panels, where a
+timestamp error producing an absurd Sharpe is a finding rather than an
+embarrassment. It would additionally give the annualised field a fourth state,
+after the three this incident just separated.
+
+What the figure did need was not suppression but an unconditional statement of
+what it is. The demo's caveat covered the first of its two performance blocks
+and not the second, and the block that carried one explained only the
+peak-to-trough row, leaving the Sharpe figures under a heading that reads like a
+conventional performance statistic. The caveat now belongs to the block rather
+than to the surrounding prose, so both carry it, and it is printed regardless of
+magnitude: a Sharpe of 147 announces itself, while an ordinary-looking figure
+from the same costless, capacity-free scoring device is the one a reader would
+mistake for an achievable return.
+
+**Constraint added.** A reported quantity's name is part of its correctness. A
+number whose label implies a different construction than the one that produced
+it is a wrong result, even when the arithmetic is right, and no known-truth test
+will catch it — the check is to state the units and the scale next to the
+figure, and to ask what a reader would assume the name meant. Where a scale
+depends on an input the contract does not carry, the absence of that input is
+reported as not applicable, distinct from zero and from a failed computation.
+
+---
+
 ## Workflow constraints
 
 The rules that emerged, applied to every subsequent session:

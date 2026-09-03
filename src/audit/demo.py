@@ -32,8 +32,18 @@ from .audits.selection import deflated_sharpe, screen_candidates
 from .coverage import AUDIT_REGISTRY, AuditRunState
 from .examples.pipelines import run_clean, run_leaky
 from .ingest.duckdb_store import RevisionSpec
-from .metrics.performance import compare_performance, performance
-from .report.text import format_execution_timing, format_pit, format_selection
+from .metrics.performance import (
+    TRADING_DAYS,
+    annualisation_label,
+    compare_performance,
+    performance,
+)
+from .report.text import (
+    execution_lag_table,
+    format_execution_timing,
+    format_pit,
+    format_selection,
+)
 from .run import run_baseline_audit
 from .synthetic import generate_drifting_panel, generate_panel, generate_return_panel
 
@@ -77,6 +87,35 @@ def write_demo_index(outdir: Path, audit_cases: dict) -> Path:
     path = outdir / "demo_audit_index.json"
     path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
     return path
+
+
+def _print_performance_block(stats, show_periods: bool = False) -> None:
+    """One performance block, always followed by what its figures are not.
+
+    The caveat is unconditional, and that is the point. Printing it only above
+    some implausible magnitude would be the plausibility clamp AI_NOTES incident
+    19 argues against, and it would reverse the risk: a Sharpe of 147 announces
+    itself, while an ordinary-looking 1.4 from the same costless, capacity-free
+    scoring device is the one a reader would mistake for an achievable return.
+
+    Attaching it to the block rather than to the surrounding prose is what makes
+    it survive. The narrative caveat covered the first of these two blocks and
+    not the second, which is the failure mode in miniature.
+    """
+    print(f"      {'Sharpe (per period)':<24}{stats.sharpe:>10.4f}")
+    print(
+        f"      {f'Sharpe (ann. {annualisation_label(TRADING_DAYS)})':<24}"
+        f"{stats.sharpe_annualised:>10.1f}"
+    )
+    print(f"      {'hit rate':<24}{stats.hit_rate:>10.1%}")
+    print(f"      {'peak-to-trough (score)':<24}{stats.additive_peak_to_trough:>10.4f}")
+    if show_periods:
+        print(f"      {'periods':<24}{stats.n_periods:>10}")
+    print()
+    print("  These are a unit-gross scoring device, not an invested book: no")
+    print("  costs, no capacity, no constraints. The Sharpe figures are not")
+    print("  achievable returns, and peak-to-trough is the decline of the score")
+    print("  series in its own units, not a drawdown of capital.")
 
 
 def _banner(text: str) -> str:
@@ -189,21 +228,25 @@ def main(argv: list[str] | None = None) -> int:
         "level_only": generate_panel(skill=0.0)[0],
         "genuine_skill": generate_panel(skill=0.6)[0],
     }
-    table = compare_performance(perf_panels)
+    # These panels are generated on `pd.bdate_range`, so the demo knows its own
+    # observation frequency and may state it. Nothing downstream assumes it.
+    table = compare_performance(perf_panels, periods_per_year=TRADING_DAYS)
 
-    zero = performance(perf_panels["level_only"], demean_labels=False)
-    zero_dm = performance(perf_panels["level_only"], demean_labels=True)
+    zero = performance(
+        perf_panels["level_only"], demean_labels=False, periods_per_year=TRADING_DAYS
+    )
+    zero_dm = performance(
+        perf_panels["level_only"], demean_labels=True, periods_per_year=TRADING_DAYS
+    )
 
     print()
     print("  A strategy built on a prediction with EXACTLY ZERO skill —")
     print("  it knows each entity's typical level and nothing else:")
     print()
-    print(f"      annualised Sharpe        {zero.sharpe_annualised:>10.1f}")
-    print(f"      hit rate                 {zero.hit_rate:>10.1%}")
-    print(f"      maximum drawdown         {zero.max_drawdown:>10.1%}")
-    print(f"      periods                  {zero.n_periods:>10}")
+    _print_performance_block(zero, show_periods=True)
     print()
-    print("  Every day profitable, no drawdown, a Sharpe no real strategy reaches.")
+    print("  Every day profitable, never declining, a Sharpe no real strategy")
+    print("  reaches.")
     print("  It is worth pausing on how convincing that table is, because none of")
     print("  it is earned: the book is long the persistently-volatile names and")
     print("  short the persistently-quiet ones, and the target barely moves.")
@@ -211,24 +254,43 @@ def main(argv: list[str] | None = None) -> int:
     print("  The same positions, scored against demeaned labels — that is, on the")
     print("  part of the target that actually varies:")
     print()
-    print(f"      annualised Sharpe        {zero_dm.sharpe_annualised:>10.1f}")
-    print(f"      hit rate                 {zero_dm.hit_rate:>10.1%}")
-    print(f"      maximum drawdown         {zero_dm.max_drawdown:>10.1%}")
+    _print_performance_block(zero_dm)
     print()
     print("  Nothing was left. The audit above reaches the same verdict in IC")
     print("  units: raw IC +0.63, demeaned IC +0.0006.")
     print()
     print("  For contrast, a prediction with genuine skill on deviations:")
     print()
-    cols = ["sharpe_raw", "sharpe_demeaned", "hit_rate_demeaned"]
-    header = f"  {'panel':<18}" + "".join(f"{c:>20}" for c in cols)
+    # The heading follows the data rather than being pinned to one scale: the
+    # annualised columns exist only when a frequency was supplied, so the labels
+    # are chosen from what the table actually holds and name the factor inline.
+    # Hardcoding them is how demo.py went on printing "ann. Sharpe" over a
+    # per-period figure after the data layer had moved underneath it.
+    if "sharpe_raw_annualised" in table.columns:
+        # sqrt, not the period count: naming the factor as "x252" would
+        # misdescribe the operation the same way a bare "ann." misdescribes
+        # the scale.
+        scale = f"(ann. {annualisation_label(TRADING_DAYS)})"
+        cols = [
+            ("sharpe_raw_annualised", "raw", scale),
+            ("sharpe_demeaned_annualised", "demeaned", scale),
+            ("hit_rate_demeaned", "hit rate", "(dm)"),
+        ]
+    else:
+        cols = [
+            ("sharpe_raw_per_period", "raw", "(per period)"),
+            ("sharpe_demeaned_per_period", "demeaned", "(per period)"),
+            ("hit_rate_demeaned", "hit rate", "(dm)"),
+        ]
+    header = f"  {'panel':<16}" + "".join(f"{name:>18}" for _, name, _ in cols)
     print(header)
+    print(f"  {'':<16}" + "".join(f"{scale:>18}" for _, _, scale in cols))
     print("  " + "-" * (len(header) - 2))
     for name in table.index:
         row = table.loc[name]
         print(
-            f"  {name:<18}"
-            + "".join(f"{float(row[c]):>20.3f}" for c in cols)
+            f"  {name:<16}"
+            + "".join(f"{float(row[c]):>18.3f}" for c, _, _ in cols)
         )
     print()
     print("  Raw Sharpe barely separates them. Demeaned Sharpe separates them")
@@ -242,9 +304,8 @@ def main(argv: list[str] | None = None) -> int:
     print("  A signal computed from each day's close, backtested as though it")
     print("  could transact at that same close:")
     print()
-    print(f"  {'execution delay':<22}{'IC':>12}{'ann. Sharpe':>16}")
-    for r in exec_result.results:
-        print(f"  lag {r.lag:<18}{r.ic:>+12.4f}{r.sharpe:>+16.2f}")
+    for line in execution_lag_table(exec_result):
+        print(line)
     print()
     print("  The close is the last observable price of the session. By the time")
     print("  it exists, the chance to trade at it has gone. Delay execution by a")
@@ -267,13 +328,24 @@ def main(argv: list[str] | None = None) -> int:
     }
     sharpes = {k: v.mean() / v.std(ddof=1) for k, v in grid.items()}
     winner = max(sharpes, key=sharpes.get)
-    annualised = sharpes[winner] * (252 ** 0.5)
-    ds = deflated_sharpe(grid[winner], n_trials=len(grid))
-    single = deflated_sharpe(grid[winner], n_trials=1)
+    # The grid is generated as daily returns here, so the frequency is stated
+    # once and the annualised figure comes back from the result. Recomputing it
+    # beside the report was how the narrative came to quote 1.18 while the
+    # report printed 0.0741 -- the same number on two scales, under one name.
+    ds = deflated_sharpe(
+        grid[winner], n_trials=len(grid), periods_per_year=TRADING_DAYS
+    )
+    single = deflated_sharpe(
+        grid[winner], n_trials=1, periods_per_year=TRADING_DAYS
+    )
 
     print()
     print(f"  Every one of 42 configurations is pure noise. The best, {winner},")
-    print(f"  shows an annualised Sharpe of {annualised:.2f}.")
+    print(
+        f"  shows a Sharpe of {ds.observed_sharpe:.4f} per period, "
+        f"{ds.observed_sharpe_annualised:.2f} annualised by "
+        f"{annualisation_label(TRADING_DAYS)}."
+    )
     print()
     print(f"  {'reported as the winner of 42 trials':<44}"
           f"prob {ds.deflated_probability:.3f}   {'FAIL' if ds.passed is False else ''}")
