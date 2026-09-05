@@ -16,9 +16,30 @@ part, on the outcome.
 
 The correction is to decide membership by date rather than by present existence:
 an entity belongs to the universe on date d if it had listed by d and had not yet
-delisted. That is what ``universe_asof`` implements, and reconstructing the
-universe this way keeps the failures in the sample for the dates they actually
-traded.
+delisted.
+
+How this module reconstructs the universe, and what that costs
+--------------------------------------------------------------
+It does not consult a listing and delisting calendar. It derives membership from
+the panel it was given: an entity counts as delisted when it is absent from the
+panel's final dates, and the survivors-only arm is that panel with those
+entities dropped.
+
+The consequence is a blind spot, and it is the worst-placed one available. **On
+a panel backfilled from a survivor list this audit reports no attrition** --
+because the entities that failed were never in the panel to be missing from its
+final dates -- and that is precisely the data whose survivorship bias most needs
+catching. The module says so in its own verdict rather than leaving the reader
+to infer it: the NO ATTRITION result states that a universe assembled without
+its delisted entities looks exactly like an honest one from here, and asks the
+reader to check how the source universe was built.
+
+A calendar-based reconstruction has no such blind spot. The SQL macro
+``universe_asof`` in ``sql/duckdb/001_schema.sql``, reachable through
+``BitemporalStore.universe()``, implements one -- but this module does not call
+it, and nothing in the audit pipeline does. It is available to callers who
+already hold a bitemporal store. ``PLAN.md`` records what would make wiring it
+worth doing, and ``CROSS_REPO_AUDIT.md`` records why it was left unwired here.
 
 What this module measures
 -------------------------

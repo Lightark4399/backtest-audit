@@ -566,7 +566,9 @@ partial-correlation increment with the errors-in-variables correction,
 Newey-West inference, alignment audit (shuffle / forward shift / backward
 diagnostic), leaky-vs-clean example pipelines with five switchable defects,
 bitemporal store with as-of reconstruction, point-in-time vs restated
-comparison, survivorship audit via universe reconstruction, within/between group
+comparison, survivorship audit deriving attrition from panel presence (not from
+a listing calendar -- see its module docstring for the blind spot that leaves),
+within/between group
 decomposition, validation-protocol comparison (random vs walk-forward vs embargoed),
 effective sample size, a thin PnL layer reporting raw and demeaned Sharpe, text
 execution-timing decay, Deflated Sharpe and FDR screening, text and JSON

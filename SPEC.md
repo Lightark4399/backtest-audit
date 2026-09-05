@@ -46,7 +46,7 @@ worry:
 | Free baseline / entity level | baseline decomposition, demeaned IC |
 | Time-alignment error | shuffle / forward-shift audit |
 | Data revised after the fact | point-in-time vs restated |
-| Universe missing its failures | survivorship via universe reconstruction |
+| Universe missing its failures | survivorship via panel-derived attrition |
 | Group-level differences | within/between group decomposition |
 | Autocorrelation inflating significance | Newey-West HAC, effective sample size |
 | A splitting scheme that leaks | random vs embargoed walk-forward |

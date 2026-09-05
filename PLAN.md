@@ -200,6 +200,44 @@ Accept HAC or block-bootstrap p-values and pass them to
 `benjamini_hochberg`. Until then, `screen_candidates` remains an explicitly
 exploratory iid-normal approximation.
 
+### Future issue: a store-backed survivorship arm
+
+`run_survivorship_audit` derives its point-in-time arm from panel presence: an
+entity counts as delisted when it is absent from the panel's final dates. That
+cannot see an entity the panel never contained, so a universe backfilled from a
+survivor list reports no attrition — the case the audit most needs to catch. The
+module states this in its own verdict and docstring.
+
+`universe_asof` in `src/audit/sql/duckdb/001_schema.sql`, reachable through
+`BitemporalStore.universe()`, already implements calendar-based membership and is
+tested. Wiring it would give the audit a second arm without that blind spot.
+
+**The condition that would make it worth doing:** a caller who holds a
+bitemporal store *and* an entity table carrying listing and delisting dates that
+did not come from the same survivor-filtered source as the panel. Absent that
+second condition the store-backed arm inherits the same bias through a longer
+path and buys nothing. The demo has no such store, so wiring it now would add a
+code path no shipped case exercises — which is the criterion 5 failure this very
+audit was raised to check for.
+
+### Future issue: pipeline counterparts for two helper-layer properties
+
+Both are silent-if-broken rather than broken; `CROSS_REPO_AUDIT.md` records the
+check that found them.
+
+- The `format_interpretation` semantic partition tests, written after incident
+  15, assert nothing about the rendered report. `render_report` does call it and
+  the READING section is in the delivered output, but every one of those tests
+  would still pass if that call disappeared.
+- `test_every_provenance_field_reaches_both_rendered_surfaces` asserts its
+  generic property against results constructed inside the test. Its pipeline
+  counterpart checks named fields instead, so the generic form is asserted only
+  at the helper layer.
+
+The remedy in both cases is the pairing `factor-zoo-audit` arrived at
+independently in AS-03: a property over all entry points, plus an incident
+regression pinning the specific call chain.
+
 ### Future issue: full point-in-time training replay
 
 Rebuild every training set at its historical cutoff from the observations and
