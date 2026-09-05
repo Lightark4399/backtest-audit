@@ -601,6 +601,101 @@ reported as not applicable, distinct from zero and from a failed computation.
 
 ---
 
+## Incident 20 — the right formula fed the wrong quantity
+
+**What happened.** `deflated_sharpe` computed the Deflated Sharpe Ratio's
+benchmark from the wrong variance. Bailey and Lopez de Prado define `SR*` using
+`V[{SR_n}]`, the variance of the Sharpe estimates across the N trials — a
+property of the *search*. The module passed `sharpe_estimator_variance(...)`
+instead: the sampling variance of the winning candidate's own Sharpe estimator.
+
+Every step around it was right. The extreme-value approximation was implemented
+correctly, the skew and kurtosis correction was the published one, and the
+z-statistic that follows the benchmark uses the estimator variance, which is
+what BLdP specify *there*. One input to one term was a different quantity
+wearing a compatible name, and the module reported a verdict as though the
+formal statistic had been computed.
+
+**Why it survived, and what that says about the method.** Nothing about it
+looks wrong. Both quantities are "the variance of a Sharpe", both are positive,
+both scale the benchmark sensibly, and the substitution is exactly right when
+trials are independent and identically distributed — which is the case a test
+built from independent noise candidates constructs. The repository's own demo
+grid is 42 independent draws, so the formal and substituted benchmarks there are
+0.0921 against 0.0806. A known-truth test built on that fixture confirms the
+module works, because on that fixture it does.
+
+That is a blind spot in the known-truth method itself, not a fact about this
+module. The method's premise is that a synthetic panel with an explicit
+generative decomposition tells you the answer in advance. It does — for the
+panel you generated. A substituted input that coincides with the correct one
+under the fixture's own assumptions is invisible to every assertion built on
+that fixture, however many of them there are, and the fixture's assumptions are
+usually the convenient ones: independent draws, identical distributions, no
+correlation between candidates. The generator and the bug agreed, so the test
+could only confirm the agreement.
+
+What catches this is not a better assertion but a second fixture chosen to
+violate the coincidence: here, a correlated grid and a heterogeneous candidate
+set, where the two variances differ by 0.003x and 29.5x. So the constraint the
+earlier incidents produced — verify every metric against a case whose answer is
+known — needs a companion: **construct the known-truth case so that the
+quantities you are substituting between are known to differ in it.** A fixture
+built from independent draws cannot distinguish a per-trial variance from a
+cross-trial one, and no amount of testing on it will.
+
+**How far apart they get.** Measured, rather than asserted as a caveat:
+
+| candidate set | `V[{SR_n}]` | winner's `Var[SR]` | ratio |
+|---|---|---|---|
+| correlated parameter grid | 0.000004 | 0.001325 | 0.003x |
+| heterogeneous candidates | 0.040525 | 0.001372 | 29.5x |
+
+Since `SR*` scales with the square root, a correlated grid — which is what a
+real parameter scan produces — makes the substituted benchmark far too high, and
+a heterogeneous candidate set makes it far too low. The direction of the error
+is not determined a priori and cannot be recovered from the winning return
+stream, which is the only thing the module receives. So it is not conservative,
+and claiming it was would have been the more comfortable and less true position.
+
+**The fix, and what it deliberately is not.** The approximation is kept, because
+the correct variance requires the Sharpe of every candidate examined and this
+repository has deferred that ledger. What is removed is the claim. With
+`trial_sharpes` the result is the formal statistic; without it the result is
+marked `method=proxy`, `trial_variance_source=winner_estimator`, the headline
+figure is renamed `approximate_selection_adjusted_sharpe_per_period`, and the verdict is
+capped at INCONCLUSIVE. `PLAN.md` now records the ledger as the precondition for
+computing `SR*` as defined rather than as a governance nicety.
+
+FAIL stays reachable, asymmetrically and on purpose. A substituted benchmark can
+be too high as easily as too low, so a FAIL is not formally warranted either; it
+is kept as a caution and says so in its own text, because the failure this
+framework exists to prevent is endorsing a result rather than doubting one.
+
+One trial is exempt from the cap. `expected_max_sharpe` returns 0.0 for a single
+trial whatever variance it is handed, so there the two benchmarks are identical
+rather than close, and capping would fail an honest single test for a
+substitution that could not have touched it — incidents 4 and 5 again.
+
+**Constraint added.** Where a known-truth fixture could make a substituted
+input coincide with the correct one, the fixture is not evidence about the
+substitution; a second case must be constructed in which the two are known to
+differ. And a module must not report a named statistic when one of its
+inputs is a stand-in for the quantity the definition names. Mechanically correct
+is not the same as correct: the check is to state, for each input, which defined
+quantity it is, and where they differ to name the substitution, the condition
+under which the two coincide, and the direction of the error — or to record that
+the direction is undetermined, which is a stronger statement than a vague
+caveat and requires measuring it. A statistic whose definition has been quietly
+relaxed cannot carry a strong verdict.
+
+**Audit item for sibling repositories.** A reusable class, so by the rule in
+`CLAUDE.md` it raises an item for `factor-zoo-audit` rather than staying here:
+any published statistic implemented from a paper where an input is substituted
+for the one the definition names. That repository is not edited from here.
+
+---
+
 ## Workflow constraints
 
 The rules that emerged, applied to every subsequent session:

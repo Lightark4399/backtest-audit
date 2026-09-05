@@ -43,6 +43,7 @@ from .report.text import (
     format_execution_timing,
     format_pit,
     format_selection,
+    selection_provenance_block,
 )
 from .run import run_baseline_audit
 from .synthetic import generate_drifting_panel, generate_panel, generate_return_panel
@@ -354,6 +355,65 @@ def main(argv: list[str] | None = None) -> int:
     print()
     print("  Identical data. The difference is provenance: one number was")
     print("  selected for being the largest of 42, and maxima of noise are large.")
+    print()
+    print("  How the 42-trial benchmark was computed:")
+    for line in selection_provenance_block(ds):
+        print(line)
+
+    # A second search, where the winner is strong enough that the deflated
+    # probability clears the PASS threshold. Without the Sharpe of every
+    # candidate the benchmark is a substitution, so the verdict is capped --
+    # which is only visible in the output if a case actually reaches the
+    # threshold. The 42-noise case above fails on its evidence and would never
+    # show the cap doing anything.
+    strong_rng = __import__("numpy").random.default_rng(3)
+    strong_grid = {
+        f"cfg{i:02d}": __import__("pandas").Series(strong_rng.normal(0.0, 0.01, 1000))
+        for i in range(11)
+    }
+    strong_grid["cfg_real"] = __import__("pandas").Series(
+        strong_rng.normal(0.0009, 0.01, 1000)
+    )
+    strong_sharpes = [float(v.mean() / v.std(ddof=1)) for v in strong_grid.values()]
+    strong_winner = max(
+        strong_grid, key=lambda k: strong_grid[k].mean() / strong_grid[k].std(ddof=1)
+    )
+    capped = deflated_sharpe(
+        strong_grid[strong_winner],
+        n_trials=len(strong_grid),
+        periods_per_year=TRADING_DAYS,
+    )
+    with_ledger = deflated_sharpe(
+        strong_grid[strong_winner],
+        n_trials=len(strong_grid),
+        periods_per_year=TRADING_DAYS,
+        trial_sharpes=strong_sharpes,
+    )
+
+    print()
+    print(_banner("CASE 5b: the same winner, with and without a trial ledger"))
+    print()
+    print("  A second search, whose winner is genuinely strong: the deflated")
+    print("  probability clears the PASS threshold either way. What differs is")
+    print("  whether the Sharpe of every candidate examined was supplied.")
+    print()
+    header = f"  {'benchmark from':<30}{'prob':>10}{'verdict':>16}{'method':>10}"
+    print(header)
+    print("  " + "-" * (len(header) - 2))
+    for label, res in (
+        ("the winner's own estimator", capped),
+        ("the variance across trials", with_ledger),
+    ):
+        mark = {True: "PASS", False: "FAIL", None: "INCONCLUSIVE"}[res.passed]
+        print(
+            f"  {label:<30}{res.deflated_probability:>10.3f}"
+            f"{mark:>16}{res.provenance.method:>10}"
+        )
+    print()
+    print("  The data is identical. The ledger is what changes the verdict,")
+    print("  because only it makes the benchmark the quantity the Deflated")
+    print(f"  Sharpe Ratio is defined against. Capped reason: "
+          f"{capped.inconclusive_reason}.")
 
     screened = screen_candidates(grid)
     print()
@@ -366,6 +426,20 @@ def main(argv: list[str] | None = None) -> int:
         )
         (args.outdir / "selection_report.json").write_text(
             json.dumps(ds.to_dict(), indent=2), encoding="utf-8"
+        )
+        # Both halves of the cap, as artefacts: a reader can compare the two
+        # reports rather than take the downgrade on trust.
+        (args.outdir / "selection_capped_report.txt").write_text(
+            format_selection(capped), encoding="utf-8"
+        )
+        (args.outdir / "selection_capped_report.json").write_text(
+            json.dumps(capped.to_dict(), indent=2), encoding="utf-8"
+        )
+        (args.outdir / "selection_ledger_report.txt").write_text(
+            format_selection(with_ledger), encoding="utf-8"
+        )
+        (args.outdir / "selection_ledger_report.json").write_text(
+            json.dumps(with_ledger.to_dict(), indent=2), encoding="utf-8"
         )
 
     # ---- Part 7: point-in-time data vintage ----

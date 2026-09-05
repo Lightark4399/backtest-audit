@@ -58,6 +58,55 @@ from ..metrics.performance import annualise_sharpe
 EULER_GAMMA = 0.5772156649015329
 
 
+@dataclass(frozen=True)
+class SelectionProvenance:
+    """How the benchmark was computed, and what verdict that permits.
+
+    One source for four renderings. These fields appear in the dataclass, the
+    text report, the JSON report and the coverage verdict, and every one of them
+    projects from ``to_dict`` rather than restating the values or re-deriving
+    the rule that connects them. Four renderings of one fact is the shape that
+    has already drifted three times in this repository.
+    """
+
+    method: str  # "formal" | "proxy"
+    trial_variance_source: str  # "cross_trial" | "winner_estimator"
+    n_trials_kind: str  # "declared" | "inferred_from_ledger"
+    strong_pass_eligible: bool
+
+    @classmethod
+    def formal(cls) -> SelectionProvenance:
+        return cls("formal", "cross_trial", "inferred_from_ledger", True)
+
+    @classmethod
+    def proxy(cls, *, benchmark_is_variance_free: bool) -> SelectionProvenance:
+        """The substituted benchmark.
+
+        ``benchmark_is_variance_free`` is the one case where a strong verdict
+        survives without a ledger: with a single trial ``expected_max_sharpe``
+        returns 0.0 whatever variance it is given, so the formal and substituted
+        benchmarks are not approximately equal but identical, and there is no
+        selection to deflate. Capping it would fail an honest single test for a
+        substitution that cannot have affected it.
+        """
+        return cls("proxy", "winner_estimator", "declared", benchmark_is_variance_free)
+
+    def to_dict(self) -> dict:
+        return {
+            "method": self.method,
+            "trial_variance_source": self.trial_variance_source,
+            "n_trials_kind": self.n_trials_kind,
+            "strong_pass_eligible": self.strong_pass_eligible,
+        }
+
+    def as_rows(self) -> tuple[tuple[str, str], ...]:
+        """Label/value pairs for any renderer, derived from ``to_dict``."""
+        return tuple(
+            (key, str(value).lower() if isinstance(value, bool) else str(value))
+            for key, value in self.to_dict().items()
+        )
+
+
 @dataclass
 class DeflatedSharpeResult:
     """Observed Sharpe against the maximum expected from selection alone.
@@ -75,6 +124,7 @@ class DeflatedSharpeResult:
     n_trials: int
     n_observations: float
     expected_max_sharpe: float
+    selection_adjusted_sharpe: float
     deflated_probability: float
     skew: float
     kurtosis: float
@@ -82,10 +132,33 @@ class DeflatedSharpeResult:
     verdict: str
     periods_per_year: int | None = None
     observed_sharpe_annualised: float | None = None
+    provenance: SelectionProvenance = field(default_factory=SelectionProvenance.formal)
+    # INCONCLUSIVE has two causes with different remedies: the statistic could
+    # not be computed, or it was computed from a substituted benchmark. Keeping
+    # the reason machine-readable is what stops one word covering both.
+    inconclusive_reason: str | None = None
     detail: dict = field(default_factory=dict)
+
+    @property
+    def selection_adjusted_sharpe_key(self) -> str:
+        """The headline figure is not called by a formal name under a proxy.
+
+        The ``_per_period`` suffix is not decoration. Every Sharpe this
+        repository reports declares its scale, and the surface-scanning test
+        rejected this key without it -- correctly, since a reader of the JSON
+        would otherwise have to infer whether an adjusted Sharpe was per period
+        or annualised. The distinction the name carries is
+        ``approximate_`` against formal, and that is untouched by the suffix.
+        """
+        if self.provenance.method == "formal":
+            return "selection_adjusted_sharpe_per_period"
+        return "approximate_selection_adjusted_sharpe_per_period"
 
     def to_dict(self) -> dict:
         return {
+            self.selection_adjusted_sharpe_key: self.selection_adjusted_sharpe,
+            **self.provenance.to_dict(),
+            "inconclusive_reason": self.inconclusive_reason,
             "observed_sharpe_per_period": self.observed_sharpe,
             "observed_sharpe_annualised": self.observed_sharpe_annualised,
             "periods_per_year": self.periods_per_year,
@@ -103,6 +176,20 @@ class DeflatedSharpeResult:
 
 def expected_max_sharpe(n_trials: int, variance_of_sharpe: float = 1.0) -> float:
     """Expected maximum Sharpe across ``n_trials`` independent null strategies.
+
+    ``variance_of_sharpe`` is, in Bailey and Lopez de Prado, ``V[{SR_n}]``: the
+    variance *across the N trials'* estimated Sharpe ratios. It is a property of
+    the search, not of any one candidate, and computing it requires the Sharpe
+    of every configuration examined.
+
+    Callers without a trial ledger substitute the sampling variance of the
+    winner's own Sharpe estimator. The two coincide when the trials are
+    independent and identically distributed under the null, and not otherwise.
+    A correlated parameter grid makes the cross-trial variance smaller, which
+    makes the substituted benchmark too high; a heterogeneous candidate set
+    makes it larger, which makes the substituted benchmark too low. The
+    direction of the resulting error is therefore not determined a priori, and
+    this function cannot tell which it was handed.
 
     Uses the standard extreme-value approximation for the maximum of N standard
     normals:
@@ -145,6 +232,7 @@ def deflated_sharpe(
     n_trials: int,
     threshold_sharpe: float = 0.0,
     periods_per_year: int | None = None,
+    trial_sharpes: pd.Series | np.ndarray | None = None,
 ) -> DeflatedSharpeResult:
     """Probability the observed Sharpe exceeds what selection alone would produce.
 
@@ -153,16 +241,68 @@ def deflated_sharpe(
     to make this correction say what one wants, and there is no way to detect that
     from the returns.
 
+    The benchmark, and what is substituted for it
+    ---------------------------------------------
+    Bailey and Lopez de Prado define the benchmark ``SR*`` in terms of
+    ``V[{SR_n}]``, the variance of the estimated Sharpe ratios *across the N
+    trials*. That is a property of the search: it needs the Sharpe of every
+    candidate examined, which needs a trial ledger. This repository has
+    deliberately deferred that ledger, so ``PLAN.md`` records it as the
+    precondition for computing ``SR*`` as defined rather than as a matter of
+    traceability.
+
+    Supply ``trial_sharpes`` and the result is the formal Deflated Sharpe Ratio.
+    Omit it and the sampling variance of the *winner's own* Sharpe estimator is
+    substituted. The two coincide when the trials are independent and
+    identically distributed under the null, and not otherwise: a correlated grid
+    shrinks the cross-trial variance and so raises the substituted benchmark
+    above the formal one, while a heterogeneous candidate set enlarges it and so
+    lowers the substituted benchmark below it. The direction of the error is not
+    determined a priori and cannot be recovered from the winning return stream.
+
+    So the substitution is kept, and the claim is not. Without a ledger the
+    result is marked ``method=proxy``, the headline figure is renamed
+    ``approximate_selection_adjusted_sharpe``, and the verdict is capped at
+    INCONCLUSIVE — a strong PASS would assert the formal quantity had been
+    computed when it had not. This is the same candour as the
+    ``iid_normal_pvalue`` field in ``screen_candidates``: the approximation is
+    usable and is never, by itself, evidence for a strong PASS.
+
+    FAIL remains reachable, deliberately and asymmetrically. A substituted
+    benchmark can be too high as easily as too low, so a FAIL is not formally
+    warranted either; it is retained as a caution rather than a certification,
+    because the failure this framework exists to prevent is endorsing a result,
+    not doubting one. The verdict text says so.
+
+    The z-statistic below is unaffected: its denominator is the sampling
+    variance of the estimator, which is what BLdP specify there.
+
     ``periods_per_year`` does not enter the computation, which must stay on the
     per-period scale. It only lets the report state the annualised figure a
     reader is otherwise left to infer.
     """
+    if trial_sharpes is not None:
+        ledger = np.asarray(pd.Series(trial_sharpes).dropna(), dtype=float)
+        if ledger.size != n_trials:
+            raise ValueError(
+                f"trial_sharpes has {ledger.size} entries but n_trials is "
+                f"{n_trials}; the ledger is the authority on how many "
+                "configurations were examined, and a silent disagreement here "
+                "is the error the ledger exists to prevent"
+            )
     x = np.asarray(pd.Series(returns).dropna(), dtype=float)
     n = x.size
 
     if n < 10:
         return DeflatedSharpeResult(
             observed_sharpe=float("nan"),
+            selection_adjusted_sharpe=float("nan"),
+            provenance=(
+                SelectionProvenance.formal()
+                if trial_sharpes is not None
+                else SelectionProvenance.proxy(benchmark_is_variance_free=n_trials <= 1)
+            ),
+            inconclusive_reason="not_computable",
             n_trials=n_trials,
             n_observations=n,
             expected_max_sharpe=float("nan"),
@@ -179,8 +319,23 @@ def deflated_sharpe(
     skew = float(stats.skew(x))
     kurt = float(stats.kurtosis(x, fisher=False))
 
+    # Sampling variance of this estimator: BLdP's denominator for the
+    # z-statistic, and correct there whether or not a ledger was supplied.
     var_sr = sharpe_estimator_variance(n, observed, skew, kurt)
-    benchmark = expected_max_sharpe(n_trials, var_sr)
+
+    # The benchmark's variance is a different quantity: V[{SR_n}] across trials.
+    # With a ledger it is computed; without one the estimator variance stands in
+    # and the result says so rather than claiming the formal statistic.
+    if trial_sharpes is not None:
+        benchmark_variance = float(np.var(ledger, ddof=1)) if ledger.size > 1 else 0.0
+        provenance = SelectionProvenance.formal()
+    else:
+        benchmark_variance = var_sr
+        # At one trial `expected_max_sharpe` returns 0.0 for any variance, so
+        # the substituted and formal benchmarks are identical rather than close.
+        provenance = SelectionProvenance.proxy(benchmark_is_variance_free=n_trials <= 1)
+    benchmark = expected_max_sharpe(n_trials, benchmark_variance)
+    adjusted = observed - max(threshold_sharpe, benchmark)
 
     # Probability that the observed Sharpe exceeds the selection benchmark,
     # accounting for the estimator's own uncertainty.
@@ -190,9 +345,24 @@ def deflated_sharpe(
     else:
         prob = float("nan")
 
+    inconclusive_reason = None
     if not np.isfinite(prob):
         passed = None
+        inconclusive_reason = "not_computable"
         verdict = "INCONCLUSIVE: the deflated probability could not be computed."
+    elif prob > 0.95 and not provenance.strong_pass_eligible:
+        # Computed, and insufficient -- not uncomputed. The remedy is a ledger.
+        passed = None
+        inconclusive_reason = "proxy_benchmark"
+        verdict = (
+            f"INCONCLUSIVE: Sharpe {observed:.2f} per period over {n_trials} "
+            f"trials clears the {benchmark:.2f} benchmark with deflated "
+            f"probability {prob:.3f}, but that benchmark used the winner's own "
+            "estimator variance in place of the variance across the trials. "
+            "The Deflated Sharpe Ratio is defined on the second, so this is an "
+            "approximation and not the formal statistic. Supply the Sharpe of "
+            "every configuration examined and a PASS becomes reachable."
+        )
     elif prob > 0.95:
         passed = True
         verdict = (
@@ -203,6 +373,7 @@ def deflated_sharpe(
         )
     elif prob > 0.5:
         passed = None
+        inconclusive_reason = "below_threshold"
         verdict = (
             f"INCONCLUSIVE: Sharpe {observed:.2f} per period against a selection "
             f"benchmark of {benchmark:.2f}, deflated probability {prob:.3f}. Above "
@@ -219,8 +390,19 @@ def deflated_sharpe(
             "than a skilful one."
         )
 
+    if passed is False and provenance.method == "proxy":
+        verdict += (
+            " The benchmark is an approximation: it used the winner's estimator "
+            "variance rather than the variance across trials, and the direction "
+            "of that error is not determined. Read this as a caution, not as a "
+            "formal rejection."
+        )
+
     return DeflatedSharpeResult(
         observed_sharpe=observed,
+        selection_adjusted_sharpe=adjusted,
+        provenance=provenance,
+        inconclusive_reason=inconclusive_reason,
         n_trials=n_trials,
         n_observations=n,
         expected_max_sharpe=benchmark,

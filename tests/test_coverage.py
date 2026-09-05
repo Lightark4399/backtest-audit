@@ -137,16 +137,20 @@ def _pit_result() -> PITResult:
     )
 
 
-def _selection_result() -> DeflatedSharpeResult:
+def _selection_result(passed: bool | None = False) -> DeflatedSharpeResult:
+    # ``selection_adjusted_sharpe`` is the observed figure net of the benchmark,
+    # the quantity already inside the z-statistic. It is a constructor argument
+    # only; no assertion in this module changes.
     return DeflatedSharpeResult(
         observed_sharpe=0.2,
         n_trials=42,
         n_observations=756,
         expected_max_sharpe=0.15,
+        selection_adjusted_sharpe=0.05,
         deflated_probability=0.4,
         skew=0.0,
         kurtosis=3.0,
-        passed=False,
+        passed=passed,
         verdict="FAIL: the selected result does not survive deflation.",
     )
 
@@ -186,3 +190,21 @@ def test_demo_index_rejects_an_invisible_registered_audit(tmp_path):
 
     with pytest.raises(ValueError, match="point_in_time"):
         write_demo_index(tmp_path, incomplete)
+
+def test_a_proxy_benchmark_is_inconclusive_and_never_reads_as_skipped():
+    """Criterion 4's pair, at the exact place this task could have collapsed it.
+
+    A selection audit computed from the substituted benchmark ran; it simply
+    could not support a strong conclusion. That is INCONCLUSIVE, and it must not
+    render as SKIPPED, whose remedy is to supply the missing input rather than a
+    trial ledger. The manifest keeps execution state and verdict on separate
+    axes precisely so these two cannot merge.
+    """
+    result = _minimal_result()
+    result.selection = _selection_result(passed=None)
+
+    entry = result.to_dict()["audit_coverage"]["audits"]["selection"]
+    assert entry["run_state"] == AuditRunState.COMPLETED.value
+    assert entry["verdict"] == AuditVerdict.INCONCLUSIVE.value
+    assert entry["reason_code"] is None, "a completed audit has no skip reason"
+    assert entry["run_state"] != AuditRunState.SKIPPED.value

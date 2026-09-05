@@ -455,12 +455,42 @@ def format_execution_timing(result) -> str:
     return "\n".join(out)
 
 
+def selection_provenance_block(result) -> list[str]:
+    """How the benchmark was computed, and what verdict that permits.
+
+    Shared with the demo. Every row projects from
+    ``SelectionProvenance.to_dict`` rather than being restated, and the note
+    below them is written once here rather than once per surface -- the
+    dataclass, this block, the JSON report and the coverage verdict are four
+    renderings of one fact, and that shape has drifted before.
+    """
+    rows = [f"  {label:<36}{value:>16}" for label, value in result.provenance.as_rows()]
+    if result.provenance.method == "proxy":
+        rows.extend(
+            _wrap(
+                "The Deflated Sharpe Ratio is defined against the variance of "
+                "the Sharpe estimates across all trials. Without the Sharpe of "
+                "every configuration examined, the winner's own estimator "
+                "variance is substituted. The two agree only for independent, "
+                "identically distributed trials; otherwise the direction of the "
+                "error is not determined, so this cannot carry a PASS.",
+                indent=2,
+            )
+        )
+    return rows
+
+
 def format_selection(result) -> str:
     """Observed Sharpe against what selection alone would produce.
 
     The observed figure is per period, and is labelled so. Reporting it under a
     bare "Sharpe" heading left it ambiguous against the annualised figure the
     surrounding narrative quoted, by a factor of sqrt(periods_per_year).
+
+    The provenance block is projected from ``SelectionProvenance.to_dict`` and
+    never restated here. The dataclass, this block, the JSON report and the
+    coverage verdict are four renderings of one fact, which is the shape that
+    has already drifted three times in this repository.
     """
     mark = {True: "PASS", False: "FAIL", None: "----"}[result.passed]
     out = [_header("SELECTION BIAS"), ""]
@@ -482,6 +512,10 @@ def format_selection(result) -> str:
             f"  {f'Sharpe (annualised, {annualisation_label(periods)})':<40}"
             f"{annualised:>+12.4f}"
         )
+    out.append(
+        f"  {result.selection_adjusted_sharpe_key:<40}"
+        f"{result.selection_adjusted_sharpe:>+12.4f}"
+    )
     out.append(f"  {'Configurations examined':<40}{result.n_trials:>12}")
     out.append(
         f"  {'Expected maximum from selection alone':<40}"
@@ -490,6 +524,8 @@ def format_selection(result) -> str:
     out.append(
         f"  {'Deflated probability':<40}{result.deflated_probability:>12.3f}"
     )
+    out.append("")
+    out.extend(selection_provenance_block(result))
     out.append("")
     out.append(
         f"  return shape: skew {result.skew:+.2f}, kurtosis {result.kurtosis:.2f} "

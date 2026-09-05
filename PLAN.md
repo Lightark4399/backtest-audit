@@ -167,6 +167,23 @@ honestly named `embargoed_walk_forward`; a date gap is not a purge.
 
 ### Future issue: TrialLedger and PBO
 
+**The ledger is a precondition for computing the Deflated Sharpe Ratio as
+defined, not a matter of traceability.** Bailey and Lopez de Prado define the
+benchmark `SR*` in terms of `V[{SR_n}]`, the variance of the Sharpe estimates
+*across the N trials*. That is a property of the search, and it needs the Sharpe
+of every configuration examined. Without it `deflated_sharpe` substitutes the
+sampling variance of the winner's own estimator, which coincides with `V[{SR_n}]`
+only for independent, identically distributed trials. Measured on synthetic
+candidate sets the two differ by 0.003x on a correlated parameter grid and 29.5x
+on a heterogeneous one, so the substitution is not a rounding matter and its
+direction is not knowable in advance.
+
+Until the ledger exists the module reports `method=proxy`, renames its headline
+figure `approximate_selection_adjusted_sharpe_per_period`, and caps the verdict at
+INCONCLUSIVE. Supplying `trial_sharpes` today already produces the formal
+statistic; what is deferred is the contract that makes a caller record those
+Sharpes as a matter of course.
+
 Make every searched configuration an explicit input so winners can be traced to
 the complete candidate set. Add CSCV/PBO only after the ledger contract exists;
 never infer search size from the winning return stream.

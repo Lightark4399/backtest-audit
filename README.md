@@ -489,12 +489,52 @@ like.
 
   reported as the winner of 42 trials         prob 0.430   FAIL
   the same returns, reported as one test      prob 0.979   PASS
+
+  How the 42-trial benchmark was computed:
+  method                                         proxy
+  trial_variance_source               winner_estimator
+  n_trials_kind                               declared
+  strong_pass_eligible                           false
 ```
 
 Identical data, different verdicts. The difference is provenance: one number was
 selected for being the largest of 42, and maxima of noise are large. The Deflated
 Sharpe Ratio asks what the maximum would be under the null given N trials and the
 observed skew and kurtosis, and expresses the observed figure against it.
+
+The provenance block is there because this module does not, by default, compute
+the statistic it is named after. The benchmark `SR*` is defined against
+`V[{SR_n}]`, the variance of the Sharpe estimates across all N trials, which
+requires the Sharpe of every configuration examined. Given only the winner's
+return stream, the module substitutes the sampling variance of that winner's own
+estimator. The two coincide for independent, identically distributed trials and
+diverge otherwise — by 0.003x on a correlated parameter grid and 29.5x on a
+heterogeneous candidate set, in both directions, so the error is not
+conservative and its sign is not knowable in advance.
+
+So the approximation is kept and the claim is not. Pass `trial_sharpes` and the
+result is the formal Deflated Sharpe Ratio with a reachable PASS. Omit it and
+the result is marked `method=proxy`, its headline figure is renamed
+`approximate_selection_adjusted_sharpe_per_period`, and the verdict is capped at
+INCONCLUSIVE — which means the check ran and the evidence was insufficient, not
+that it was skipped. A single trial is exempt, since the benchmark is then 0.0
+whatever variance it is given.
+
+The demo shows the cap changing a verdict, on a search whose winner is strong
+enough to clear the threshold either way:
+
+```
+  benchmark from                      prob         verdict    method
+  ------------------------------------------------------------------
+  the winner's own estimator         0.986    INCONCLUSIVE     proxy
+  the variance across trials         0.965            PASS    formal
+```
+
+The data is identical in both rows. The ledger is what changes the verdict,
+because only it makes the benchmark the quantity the ratio is defined against.
+Note the direction here: the substituted benchmark was the *more* permissive of
+the two, which is what a caveat about the approximation being conservative would
+have got wrong.
 
 In the convenience screen, three look significant individually and none survive
 FDR control. That screen labels its field `iid_normal_pvalue`: it is an
