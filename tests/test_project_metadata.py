@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import tomllib
@@ -15,8 +16,27 @@ def _project() -> dict:
     return tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))["project"]
 
 
-def test_release_version_is_v012():
-    assert _project()["version"] == "0.1.2"
+def test_release_version_is_a_valid_semantic_version():
+    """Asserts the shape of the version, not a transcribed literal.
+
+    Old behaviour: this pinned the string "0.1.2", and `PLAN.md`'s prose was
+    pinned to "Version 0.1.2" separately, so a release required hand-editing two
+    literals in a test whose purpose is to catch exactly that kind of drift.
+    Target behaviour: the version is read from `pyproject.toml`, checked for
+    shape, and every other assertion derives from it. `pyproject.toml` owns the
+    number, as `CLAUDE.md` requires.
+    Migration impact: bumping a version no longer edits this file. A release that
+    forgets to update `PLAN.md` still fails, because the prose is checked against
+    the declared version rather than against a second copy of it.
+    """
+    version = _project()["version"]
+    assert re.fullmatch(r"\d+\.\d+\.\d+", version), version
+
+
+def test_the_plan_describes_the_declared_version():
+    """The prose must name the version that ships, whatever it is."""
+    plan = (ROOT / "PLAN.md").read_text(encoding="utf-8")
+    assert f"Version {_project()['version']}" in plan
 
 
 def test_distribution_and_console_script_names_are_unambiguous():
@@ -56,8 +76,15 @@ def test_readme_disambiguates_the_similarly_named_pypi_project():
 
 
 def test_plan_describes_the_current_test_and_module_status():
+    """Version-independent content checks.
+
+    Old behaviour: this also asserted the literal "Version 0.1.2", duplicating
+    what `test_the_plan_describes_the_declared_version` now derives. Target
+    behaviour: the version check lives in one place and this test covers only
+    content that does not move with a release. Migration impact: none for
+    callers; a release no longer needs this assertion edited.
+    """
     plan = (ROOT / "PLAN.md").read_text(encoding="utf-8")
-    assert "Version 0.1.2" in plan
     assert "audit coverage manifest" in plan
     assert "Execution timing and selection bias" in plan
     assert "Feature freeze" in plan

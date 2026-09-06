@@ -122,7 +122,7 @@ first survivorship generator was too weak to demonstrate anything.
 
 ## Current status
 
-Version 0.1.2 has a registry-backed audit coverage manifest. The panel contract,
+Version 0.2.0 has a registry-backed audit coverage manifest. The panel contract,
 baseline decomposition,
 alignment, point-in-time vintage comparison, survivorship, grouping, validation
 protocol, PnL, execution timing and selection-bias modules are implemented. The
@@ -155,7 +155,12 @@ is a package resource rather than an assumed repository-relative file.
 
 ## Feature freeze
 
-Version 0.1.2 is feature-frozen after correctness and coverage hardening. The
+Version 0.2.0 is feature-frozen after correctness and coverage hardening.
+It is a minor rather than a patch release: the distribution and CLI are
+renamed, a reported metric is renamed and changes units, an observation
+frequency parameter is required for annualisation, and the selection module
+gains a verdict ceiling. `MIGRATION.md` states what breaks and what to do.
+ The
 items below are deliberately GitHub issues, not work in progress. They require a
 new milestone justified by interview feedback or a real user need.
 
