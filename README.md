@@ -442,7 +442,9 @@ one measures whether the rule applies to your data.
 ### Effective sample size
 
 The HAC correction already tells you the standard error is understated. It does
-not tell you in a form anyone acts on. The report now also states it as a count:
+not tell you in a form anyone acts on. The report now also states it as a count
+(illustrative figures, chosen to show strong positive autocorrelation; the demo
+panels are close to independent and report an SE inflation near 1.0):
 
 ```
     t-stat (naive)            4.21
@@ -466,10 +468,10 @@ chance to transact at it has gone.
 The audit re-scores the same signal as execution is delayed:
 
 ```
-  execution delay                 IC     ann. Sharpe
-  lag 0                      +0.8776         +188.13
-  lag 1                      +0.0130           +2.97
-  lag 2                      +0.0008           -0.26
+  execution delay                 IC  Sharpe (per period)
+  lag 0                      +0.8776             +11.8511
+  lag 1                      +0.0130              +0.1868
+  lag 2                      +0.0008              -0.0163
 ```
 
 Nothing about the strategy changed — only when it traded.

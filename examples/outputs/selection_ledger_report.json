@@ -1,0 +1,21 @@
+{
+  "selection_adjusted_sharpe_per_period": 0.05707593216048272,
+  "method": "formal",
+  "trial_variance_source": "cross_trial",
+  "n_trials_kind": "inferred_from_ledger",
+  "strong_pass_eligible": true,
+  "inconclusive_reason": null,
+  "observed_sharpe_per_period": 0.12199581686559803,
+  "observed_sharpe_annualised": 1.9366235544993102,
+  "periods_per_year": 252,
+  "n_trials": 12,
+  "n_observations": 1000,
+  "expected_max_sharpe_per_period": 0.06491988470511531,
+  "deflated_probability": 0.9648227158021812,
+  "skew": 0.1071429524438132,
+  "kurtosis": 2.84496627954458,
+  "passed": true,
+  "verdict": "PASS: Sharpe 0.12 per period over 12 trials, against an expected maximum of 0.06 from selection alone. Deflated probability 0.965 -- the result survives the correction for having chosen the best of several candidates.",
+  "sharpe_per_period_estimator_variance": 0.0009947884451924171,
+  "threshold_sharpe_per_period": 0.0
+}

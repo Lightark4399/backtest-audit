@@ -1,0 +1,24 @@
+
+==============================================================================
+SELECTION BIAS
+==============================================================================
+
+  Observed Sharpe (per period)                              +0.1220
+  Sharpe (annualised, sqrt 252)                             +1.9366
+  selection_adjusted_sharpe_per_period                      +0.0571
+  Configurations examined                                        12
+  Expected maximum from selection alone                     +0.0649
+  Deflated probability                                        0.965
+
+  method                                                     formal
+  trial_variance_source                                 cross_trial
+  n_trials_kind                                    inferred_from_ledger
+  strong_pass_eligible                                         true
+
+  return shape: skew +0.11, kurtosis 2.84 over 1000 observations
+
+  [PASS]
+        PASS: Sharpe 0.12 per period over 12 trials, against an expected
+        maximum of 0.06 from selection alone. Deflated probability 0.965 --
+        the result survives the correction for having chosen the best of
+        several candidates.

@@ -1,13 +1,21 @@
 {
-  "observed_sharpe": 0.07414873159394864,
+  "approximate_selection_adjusted_sharpe_per_period": -0.006447337007588136,
+  "method": "proxy",
+  "trial_variance_source": "winner_estimator",
+  "n_trials_kind": "declared",
+  "strong_pass_eligible": false,
+  "inconclusive_reason": null,
+  "observed_sharpe_per_period": 0.07414873159394864,
+  "observed_sharpe_annualised": 1.1770746229707962,
+  "periods_per_year": 252,
   "n_trials": 42,
   "n_observations": 756,
-  "expected_max_sharpe": 0.08059606860153677,
+  "expected_max_sharpe_per_period": 0.08059606860153677,
   "deflated_probability": 0.4298775464952184,
   "skew": -0.038397637527997006,
   "kurtosis": 2.7981420553340666,
   "passed": false,
-  "verdict": "FAIL: Sharpe 0.07 does not clear the 0.08 expected from picking the best of 42 trials (deflated probability 0.430). The reported figure is consistent with having selected the luckiest configuration rather than a skilful one.",
-  "sharpe_estimator_variance": 0.0013315479441544783,
-  "threshold_sharpe": 0.0
+  "verdict": "FAIL: Sharpe 0.07 per period does not clear the 0.08 expected from picking the best of 42 trials (deflated probability 0.430). The reported figure is consistent with having selected the luckiest configuration rather than a skilful one. The benchmark is an approximation: it used the winner's estimator variance rather than the variance across trials, and the direction of that error is not determined. Read this as a caution, not as a formal rejection.",
+  "sharpe_per_period_estimator_variance": 0.0013315479441544783,
+  "threshold_sharpe_per_period": 0.0
 }

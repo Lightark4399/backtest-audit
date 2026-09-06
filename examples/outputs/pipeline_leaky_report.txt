@@ -122,5 +122,5 @@ PROVENANCE
   auditor_version         0.1.2
   build_commit            unknown
   audited_project_commit  unknown
-  generated_at            2026-08-29T15:50:07+00:00
-  python                  3.12.13
+  generated_at            2026-09-06T12:10:50+00:00
+  python                  3.12.10

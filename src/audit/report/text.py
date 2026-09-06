@@ -455,6 +455,13 @@ def format_execution_timing(result) -> str:
     return "\n".join(out)
 
 
+# Widest label (``approximate_selection_adjusted_sharpe_per_period``) is 48 and
+# widest value (``winner_estimator``) is 16; one pair of widths for every row in
+# the block keeps them aligned within WIDTH.
+_SELECTION_LABEL_W = 49
+_SELECTION_VALUE_W = 16
+
+
 def selection_provenance_block(result) -> list[str]:
     """How the benchmark was computed, and what verdict that permits.
 
@@ -464,7 +471,10 @@ def selection_provenance_block(result) -> list[str]:
     dataclass, this block, the JSON report and the coverage verdict are four
     renderings of one fact, and that shape has drifted before.
     """
-    rows = [f"  {label:<36}{value:>16}" for label, value in result.provenance.as_rows()]
+    rows = [
+        f"  {label:<{_SELECTION_LABEL_W}}{value:>{_SELECTION_VALUE_W}}"
+        for label, value in result.provenance.as_rows()
+    ]
     if result.provenance.method == "proxy":
         rows.extend(
             _wrap(
@@ -495,7 +505,8 @@ def format_selection(result) -> str:
     mark = {True: "PASS", False: "FAIL", None: "----"}[result.passed]
     out = [_header("SELECTION BIAS"), ""]
     out.append(
-        f"  {'Observed Sharpe (per period)':<40}{result.observed_sharpe:>+12.4f}"
+        f"  {'Observed Sharpe (per period)':<{_SELECTION_LABEL_W}}"
+        f"{result.observed_sharpe:>+{_SELECTION_VALUE_W}.4f}"
     )
     periods = getattr(result, "periods_per_year", None)
     if periods is None:
@@ -508,21 +519,26 @@ def format_selection(result) -> str:
         )
     else:
         annualised = result.observed_sharpe_annualised
+        label = f"Sharpe (annualised, {annualisation_label(periods)})"
         out.append(
-            f"  {f'Sharpe (annualised, {annualisation_label(periods)})':<40}"
-            f"{annualised:>+12.4f}"
+            f"  {label:<{_SELECTION_LABEL_W}}"
+            f"{annualised:>+{_SELECTION_VALUE_W}.4f}"
         )
     out.append(
-        f"  {result.selection_adjusted_sharpe_key:<40}"
-        f"{result.selection_adjusted_sharpe:>+12.4f}"
-    )
-    out.append(f"  {'Configurations examined':<40}{result.n_trials:>12}")
-    out.append(
-        f"  {'Expected maximum from selection alone':<40}"
-        f"{result.expected_max_sharpe:>+12.4f}"
+        f"  {result.selection_adjusted_sharpe_key:<{_SELECTION_LABEL_W}}"
+        f"{result.selection_adjusted_sharpe:>+{_SELECTION_VALUE_W}.4f}"
     )
     out.append(
-        f"  {'Deflated probability':<40}{result.deflated_probability:>12.3f}"
+        f"  {'Configurations examined':<{_SELECTION_LABEL_W}}"
+        f"{result.n_trials:>{_SELECTION_VALUE_W}}"
+    )
+    out.append(
+        f"  {'Expected maximum from selection alone':<{_SELECTION_LABEL_W}}"
+        f"{result.expected_max_sharpe:>+{_SELECTION_VALUE_W}.4f}"
+    )
+    out.append(
+        f"  {'Deflated probability':<{_SELECTION_LABEL_W}}"
+        f"{result.deflated_probability:>{_SELECTION_VALUE_W}.3f}"
     )
     out.append("")
     out.extend(selection_provenance_block(result))

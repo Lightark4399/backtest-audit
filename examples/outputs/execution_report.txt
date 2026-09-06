@@ -5,10 +5,10 @@ EXECUTION TIMING
 
   Could the signal have been traded when it was scored?
 
-  execution delay                 IC     ann. Sharpe
-  lag 0                      +0.8776         +188.13
-  lag 1                      +0.0130           +2.97
-  lag 2                      +0.0008           -0.26
+  execution delay                 IC  Sharpe (per period)
+  lag 0                      +0.8776             +11.8511
+  lag 1                      +0.0130              +0.1868
+  lag 2                      +0.0008              -0.0163
 
   retained at lag 1              1%
 
