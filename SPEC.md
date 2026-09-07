@@ -24,7 +24,7 @@ A high evaluation metric is not evidence of skill. It can also be produced by th
 structure of the target. For a persistent target — realized volatility, log
 volume, intraday range — decompose it as
 
-```
+```text
 y(i, t) = level(i) + deviation(i, t)
 ```
 

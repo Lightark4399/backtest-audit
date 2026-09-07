@@ -40,7 +40,7 @@ zero* genuine skill and checking what the metric said. It said 0.2194.
 
 **The second bias.** Replacing it with the textbook partial correlation
 
-```
+```text
 r_xy·b = (r_xy − r_xb·r_yb) / sqrt((1 − r_xb²)(1 − r_yb²))
 ```
 
@@ -693,6 +693,56 @@ relaxed cannot carry a strong verdict.
 `CLAUDE.md` it raises an item for `factor-zoo-audit` rather than staying here:
 any published statistic implemented from a paper where an input is substituted
 for the one the definition names. That repository is not edited from here.
+
+---
+
+## What can and cannot be checked cheaply
+
+Hardening 0.2.0 turned up five defects nobody went looking for: a duplicated
+execution heading, a comparison heading pinned to one scale while its data
+became conditional, a narrative sentence naming the period count as though it
+were the multiplier, a field name too long for the column it was formatted into,
+and a README table still showing pre-rename figures. Four of the five were
+regressions introduced by the fixes themselves, not old decay.
+
+It is tempting to call them one shape and write one check. They are three, and
+the distinction decides what is buildable.
+
+**Output that is copied.** The duplicated heading and the stale README table are
+genuine drift: a second copy existed and one copy moved. This is checkable, and
+cheaply — the documentation check added alongside this note regenerates the
+demo and requires every figure quoted in a fenced block to appear in that
+output. It found the README table immediately.
+
+**Output that is malformed.** The overlong field name broke column alignment.
+One rendering, no second copy, nothing drifted; an invariant about layout was
+violated by a value's length. Checkable, and cheap once someone thinks to check
+it, but it is a different check from the first and shares nothing with it.
+
+**Output that is merely wrong about itself.** The pinned heading and the prose
+factor each appeared in exactly one place and were simply untrue about the
+number beside them. There is no general check for this. The rule that catches
+it — a claim of annualisation must name what it annualised by — is domain
+knowledge that has to be articulated before it can be enforced, which means it
+can never catch the first instance of its own class. All five here were first
+instances.
+
+So: **cheap general checks exist for output that is copied and for output that
+is malformed. There is none for output that is merely wrong about itself.** That
+one costs a first occurrence every time. What can be bought is a cheap second
+occurrence — once the annualisation rule existed it caught a later key that
+reported a Sharpe with no scale, before that key shipped — and keeping the
+number of copies at one.
+
+The second half of that is the more valuable half, and it is not a check at all.
+Every time a duplicated rendering was replaced by a single source —
+``execution_lag_table``, ``annualisation_label``, ``selection_provenance_block``,
+``SelectionProvenance.as_rows`` — the defect became unrepresentable rather than
+detectable. The evidence is that the four selection provenance fields, which are
+rendered into the dataclass, the text report, the JSON report and the coverage
+verdict, never drifted once, despite being the exact four-rendering shape that
+had failed three times in the commit before them. Where one fact has one source
+there is no check to write.
 
 ---
 
