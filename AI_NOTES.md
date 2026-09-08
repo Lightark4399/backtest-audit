@@ -696,6 +696,73 @@ for the one the definition names. That repository is not edited from here.
 
 ---
 
+## Incident 21 — an intention parked in a slot that never arrived
+
+**What happened.** The opening brief for the 0.2.0 work put four things out of
+scope — Sortino, Omega, CVaR and engine adapters — and asked that they be
+recorded in `PLAN.md` as declined, with the reason. That instruction was
+acknowledged, and it was written into `CLAUDE.md`, which has said since the
+first commit of the series that all four are "declined, not deferred" and that
+the decline belongs in `PLAN.md`.
+
+It never reached `PLAN.md`. The engine-adapters entry stayed worded as a future
+issue pending demand, and Sortino, Omega and CVaR appeared nowhere at all. Six
+commits shipped, including a tagged release, with `CLAUDE.md` asserting a fact
+about `PLAN.md` that was not true of `PLAN.md`.
+
+**How it went missing.** The item was deferred, in a reply, to "the PLAN.md
+task". There was no PLAN.md task. Four numbered tasks were given and none was
+that one; a fifth arrived later and was the release, which edited `PLAN.md`
+twice without touching this. The queue the item was placed in did not exist, so
+nothing ever drained it.
+
+**Why none of the machinery saw it.** This is the shape the whole series was
+about — a thing recorded and never reached — and it is worth being exact about
+why each mechanism was blind, because the answers are not the same:
+
+* Acceptance criterion 5 asks whether a registered module is wired into the
+  report and exercised by the demo. An unimplemented roadmap item has no module,
+  no report section and no demo case. There is nothing for it to inspect.
+* The audit coverage registry enumerates shipped audit channels. A declined
+  feature is not a channel.
+* `CROSS_REPO_AUDIT.md` tracks findings with recorded check results and an
+  explicit OPEN/CHECKED_CLEAN state. It would have held this item well — but
+  only if someone had entered it, and it exists for findings that cross a
+  repository boundary, which this did not.
+* The documentation figure check reads numbers inside fenced blocks. This was
+  prose.
+
+**What would have caught it — and it is cheap.** Not "nothing", which was the
+first answer and the comfortable one. `CLAUDE.md` makes a checkable claim about
+another file: it names four items as declined and says the decline is recorded
+in `PLAN.md`. `tests/test_project_metadata.py` already asserts this genre of
+thing — that `PLAN.md` describes the shipped status, that `SPEC.md` states
+criterion 5, that `README.md` does not carry stale totals. A test asserting that
+every item `CLAUDE.md` declares declined appears in `PLAN.md` with a reason
+would have failed on the first commit of the series and every commit after it.
+
+The general form is worth more than the instance: **when one document asserts
+something about another document, that cross-reference is a testable claim, and
+it is exactly as liable to drift as two renderings of a number.** This
+repository has spent five commits learning that about report surfaces and had
+not applied it to its own prose.
+
+**The part that stays uncheckable.** The instruction itself lived in a
+conversation, and conversations are not an artefact any test can read. What
+turned an unrecorded intention into a checkable one was writing it into
+`CLAUDE.md` — after which it was inspectable and simply never inspected. The
+lesson is not that the machinery failed; it is that a rule written into the tree
+gets a check for free, and a rule left in a reply gets nothing. The failure was
+in the four hours between the two.
+
+**Constraint added.** A deferral is recorded in a tracked file at the moment it
+is made, naming the file it is deferred to, never in a reply naming a task that
+has not been given. And a claim one document makes about another is checked like
+any other claim: if `CLAUDE.md` says a decision is written down somewhere, a test
+asserts that it is.
+
+---
+
 ## What can and cannot be checked cheaply
 
 Hardening 0.2.0 turned up five defects nobody went looking for: a duplicated

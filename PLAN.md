@@ -160,9 +160,37 @@ It is a minor rather than a patch release: the distribution and CLI are
 renamed, a reported metric is renamed and changes units, an observation
 frequency parameter is required for annualisation, and the selection module
 gains a verdict ceiling. `MIGRATION.md` states what breaks and what to do.
- The
-items below are deliberately GitHub issues, not work in progress. They require a
-new milestone justified by interview feedback or a real user need.
+
+The items below are of two kinds, and the difference is not cosmetic. **Declined**
+means the thing conflicts with what this repository is for and will not be built
+here whoever asks. **Future issue** means it is compatible and unbuilt, waiting
+on a stated condition. Filing a decline as a future issue leaves it looking
+merely unfinished, which invites someone to finish it.
+
+### Declined: Sortino, Omega, CVaR and other performance ratios
+
+Not deferred. They will not be added.
+
+This repository decomposes a score into the part any naive baseline gets for
+free and the part attributable to the model. Every number it ships is either one
+half of such a decomposition or a statement about what it cannot measure. The
+PnL layer is the closest thing to an exception, and its own docstring says the
+Sharpe register is not the better one — it exists to restate an existing finding
+in the units a reader recognises, and it reports raw and demeaned as a pair
+because the gap between them *is* the finding.
+
+Sortino, Omega and CVaR are performance measures. They characterise a return
+distribution; they do not separate free from earned, and there is no demeaned
+counterpart of a CVaR that means anything. Adding them would grow the surface on
+which incident 12 happened — a presentation layer reproducing the level effect
+before exposing it — while adding no capacity to decompose anything. The result
+would be a second-rate performance library bolted to a credibility auditor,
+worse at the first job than the tools that specialise in it and muddier at the
+second, which is the only job it has.
+
+`SPEC.md` states the position this follows from: not a strategy, no alpha
+claimed, sought or implied. A reader wanting downside-risk ratios is better
+served by a library that does that and nothing else, run on the same returns.
 
 ### Future issue: true purge and CPCV
 
@@ -195,9 +223,32 @@ never infer search size from the winning return stream.
 
 ### Future issue: engine adapters
 
-Define a narrow export contract for CSV, VectorBT and Backtrader results. Do not
-embed or reproduce those engines. Missing trial, universe or timing evidence
-must yield an explicit evidence gap rather than a clean verdict.
+**Deferred, not declined, and the distinction was examined rather than assumed.**
+The instinct is to decline it under `SPEC.md`'s "not a backtesting engine", but
+an adapter does the opposite of embedding an engine: it keeps the engine outside
+and takes its output. Declining it on that ground would misread the non-goal.
+
+The stronger argument for declining is that it adds no capability. The panel
+contract is four columns, and `PLAN.md` already says any pipeline in any language
+can produce that CSV — so the export contract exists, and an adapter only saves a
+user the transformation. That makes it a convenience, and conveniences wait for
+someone who actually wants one; it does not make it out of scope.
+
+So it stays a future issue, with the condition stated: a user who holds VectorBT
+or Backtrader output and cannot readily produce the four columns themselves.
+Absent that, each adapter is a standing coupling to a third-party schema that
+changes on someone else's timetable, for a transformation the user could write
+once.
+
+The design constraints, unchanged, and they are the reason doing it properly is
+harder than it looks. Define a narrow export contract for CSV, VectorBT and
+Backtrader results. Do not embed or reproduce those engines. Missing trial,
+universe or timing evidence must yield an explicit evidence gap rather than a
+clean verdict — an adapter that turned a partial export into a clean report
+would be this framework certifying a pipeline it could not see, which is the
+failure `SPEC.md` names first. That last requirement is newly representable: the
+coverage registry now carries `SKIPPED` with `REQUIRES_EXTERNAL_EVIDENCE`, so an
+adapter has somewhere honest to put what an engine did not export.
 
 ### Future issue: robust p-values for candidate screening
 
