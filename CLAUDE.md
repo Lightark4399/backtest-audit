@@ -9,8 +9,8 @@ Correctness, naming and documentation fixes only. `pyproject.toml` owns the vers
 
 - Do not add modules, metrics, roadmap items or dependencies. An idea that does
   not meet every acceptance criterion belongs in an issue, not in `src/`.
-- Sortino, Omega and CVaR are declined (this decomposes credibility, it does not
-  report performance); engine adapters are deferred. PLAN.md has both reasons.
+- Declined: Sortino, Omega, CVaR — credibility decomposition, not performance.
+- Deferred: engine adapters — the four-column contract already exports. See PLAN.
 
 ## Acceptance criteria, as checks to run
 
