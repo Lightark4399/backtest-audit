@@ -8,6 +8,12 @@ The incident body lives where the defect occurred. This file carries only the
 upstream identifier, a link, the date, and what the check here found. Two bodies
 drift; one body and a pointer do not.
 
+References here name a path and quote the phrase they rely on, never a line
+number. Line numbers were tried and two of six went stale within days — both
+moved by the very commits that corrected the claims they pointed at. A path and
+a quotation locate a claim and survive the edit; a line number adds drift and
+locates nothing a search would not.
+
 ## Release rule
 
 **A pending item in this file blocks a release and blocks a merge to `main`.**
@@ -87,14 +93,14 @@ The registry is clean. A supporting mechanism is not.
 
 - `universe_asof` is a SQL macro in `src/audit/sql/duckdb/001_schema.sql`,
   reached only through `BitemporalStore.universe()`
-  (`src/audit/ingest/duckdb_store.py:230`).
+  (`BitemporalStore.universe` in `src/audit/ingest/duckdb_store.py`).
 - `BitemporalStore.universe()` has **no call sites outside `tests/test_pit.py`**.
   The call trace over a full demo run confirms it is never executed.
-- It is tested — `tests/test_pit.py:117-118`, and `tests/test_sql_windows.py:113`
-  asserts the macro consults `delisting_date`.
+- It is tested — `tests/test_pit.py` asserts the macro's membership by date, and
+  `tests/test_sql_windows.py` asserts it consults `delisting_date`.
 - It was documented as the mechanism behind the survivorship audit. At the time
-  of the check, `src/audit/audits/survivorship.py:19` read "That is what
-  ``universe_asof`` implements", and `SPEC.md:49` and `README.md:569` both said
+  of the check, `src/audit/audits/survivorship.py` read "That is what
+  ``universe_asof`` implements", and `SPEC.md` and `README.md` both said
   "survivorship via universe reconstruction". All three have since been
   corrected — see the decision below; they are quoted here as they stood when
   the finding was made, because that is what the finding was about.

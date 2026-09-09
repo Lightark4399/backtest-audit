@@ -1,4 +1,4 @@
-"""A claim one document makes about another is checked like any other claim.
+"""A claim a document makes about the rest of the repository is checked.
 
 ``CLAUDE.md`` asserted for six commits and a tagged release that four items were
 declined and that the decline was recorded in ``PLAN.md``. It was not: engine
@@ -28,13 +28,28 @@ carries seven future issues and ``CLAUDE.md`` names one, because it names only
 what a brief put out of scope. Requiring the reverse would force every future
 issue into the working rules, which is not what that file is for.
 
+What is not checked, having been counted
+----------------------------------------
+The inventory behind this file found roughly ninety prose cross-references
+between the seven documents, and citations running the other way from module
+docstrings back into them. None is checked. They are left deliberately, not
+overlooked: a prose sentence asserting that another document "sets the bar" or
+"records the reason" has no structure to parse, and a pattern fitted to today's
+sentences is the failure this repository has diagnosed three times. Incident 21
+carries the sizes so the next reader can tell a counted gap from an unexamined
+one.
+
 The conventions parsed
 ----------------------
 Both are structures the documents already use, not markers invented here.
 ``PLAN.md`` headings are ``### Declined: ...`` and ``### Future issue: ...``.
 ``CLAUDE.md`` bullets are ``- Declined: <items>`` and ``- Deferred: <items>``,
 where the items are a comma-separated list terminated by the first dash,
-semicolon or full stop, after which prose resumes.
+semicolon or full stop, after which prose resumes. ``MIGRATION.md`` marks
+removed names by the column they sit in: its tables are headed with the version
+each column describes, so a cell under ``0.1.2`` is a name this release removed
+and a cell under ``0.2.0`` is one it must still answer to. An identifier in both
+columns is unchanged, which is how ``audit`` appears on both sides.
 
 That second convention did need a wording change: the bullet previously read
 "Sortino, Omega and CVaR are declined (...); engine adapters are deferred",
@@ -45,7 +60,15 @@ the state first, is the minimum that makes the claim machine-readable.
 
 from __future__ import annotations
 
+import dataclasses
+import importlib
+import pkgutil
 import re
+
+import tomllib
+
+import audit
+from audit.coverage import AUDIT_REGISTRY
 
 from .test_project_metadata import ROOT
 
@@ -159,3 +182,173 @@ def test_every_decline_in_plan_is_accounted_for_by_claude():
             f"declined. Either add it to the `- Declined:` bullet or explain in "
             f"{PLAN} why the working rules need not carry it."
         )
+
+
+# ----------------------------------------------------------------------
+# MIGRATION.md against the package it documents
+# ----------------------------------------------------------------------
+MIGRATION = "MIGRATION.md"
+SPEC = "SPEC.md"
+
+_BACKTICKED = re.compile(r"`([^`]+)`")
+_DOTTED = re.compile(r"`([A-Z][A-Za-z0-9_]*)\.([a-z_][a-z0-9_]*)(?:\(\))?`")
+
+
+def _package_source() -> str:
+    return "\n".join(
+        path.read_text(encoding="utf-8") for path in (ROOT / "src").rglob("*.py")
+    )
+
+
+def _declared_names() -> set[str]:
+    project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    project = project["project"]
+    return {project["name"], *project.get("scripts", {})}
+
+
+def _classes() -> dict[str, type]:
+    found: dict[str, type] = {}
+    for module in pkgutil.walk_packages(audit.__path__, "audit."):
+        try:
+            imported = importlib.import_module(module.name)
+        except Exception:  # pragma: no cover - a module that cannot import is
+            continue  # a failure other tests report far more clearly
+        for name in dir(imported):
+            value = getattr(imported, name)
+            if isinstance(value, type):
+                found.setdefault(name, value)
+    return found
+
+
+def _has_member(owner: type, attribute: str) -> bool:
+    """Class attribute or dataclass field.
+
+    A dataclass field declared without a default is not a class attribute, so
+    ``hasattr`` alone misses exactly the fields these results are made of.
+    """
+    if hasattr(owner, attribute):
+        return True
+    if dataclasses.is_dataclass(owner):
+        return attribute in {f.name for f in dataclasses.fields(owner)}
+    return False
+
+
+def _resolves(name: str, source: str, declared: set[str]) -> bool:
+    """A name the package answers to: a literal it emits, or a name it declares.
+
+    Serialisation keys, enum values and CLI flags all appear as string literals
+    in the source; the distribution and console-script names come from
+    ``pyproject.toml``. Between them these cover every kind of identifier
+    ``MIGRATION.md`` promises a reader.
+    """
+    return name in declared or f'"{name}"' in source or f"'{name}'" in source
+
+
+def _migration_columns() -> tuple[set[str], set[str]]:
+    """(current, removed) identifiers, taken from the version-headed columns."""
+    current: set[str] = set()
+    removed: set[str] = set()
+    header: list[str] | None = None
+    for line in (ROOT / MIGRATION).read_text(encoding="utf-8").splitlines():
+        if not line.strip().startswith("|"):
+            header = None
+            continue
+        cells = [c.strip() for c in line.strip().strip("|").split("|")]
+        if header is None:
+            header = cells
+            continue
+        if set("".join(cells)) <= set("-: "):
+            continue
+        for column, cell in zip(header, cells, strict=False):
+            for identifier in _BACKTICKED.findall(cell):
+                if "0.2.0" in column or column == "Field":
+                    current.add(identifier)
+                elif "0.1.2" in column:
+                    removed.add(identifier)
+    return current, removed
+
+
+def test_migration_names_an_interface_the_package_answers_to():
+    """Every current name in MIGRATION.md resolves.
+
+    This file is the entire interface documentation a downstream project gets,
+    and a wrong name sends someone to a KeyError with no way to tell whether the
+    interface or the note is at fault.
+    """
+    current, _ = _migration_columns()
+    assert len(current) > 10, f"only {len(current)} current identifiers parsed"
+
+    source, declared = _package_source(), _declared_names()
+    missing = sorted(i for i in current if not _resolves(i, source, declared))
+    assert not missing, (
+        f"{MIGRATION} documents {missing} as the 0.2.0 interface, but the package "
+        f"answers to no such name. Either the note is wrong or the rename is "
+        f"incomplete, and a reader cannot tell which."
+    )
+
+
+def test_migration_removed_names_are_actually_removed():
+    """The other direction: a name documented as gone must be gone.
+
+    Identifiers listed in both version columns are unchanged -- the import
+    package is the same on both sides -- and are exempt.
+    """
+    current, removed = _migration_columns()
+    assert removed, f"no removed identifiers parsed from {MIGRATION}"
+
+    source, declared = _package_source(), _declared_names()
+    survivors = sorted(
+        i for i in removed - current if _resolves(i, source, declared)
+    )
+    assert not survivors, (
+        f"{MIGRATION} tells a reader {survivors} was removed in 0.2.0, but the "
+        f"package still answers to it. A migration note that overstates what "
+        f"broke costs its reader work for nothing."
+    )
+
+
+def test_migration_attribute_paths_exist_or_are_documented_as_removed():
+    """``Class.attribute`` in prose, where the file makes its sharpest claims."""
+    _, removed = _migration_columns()
+    classes = _classes()
+    text = (ROOT / MIGRATION).read_text(encoding="utf-8")
+
+    pairs = set(_DOTTED.findall(text))
+    assert len(pairs) > 4, f"only {len(pairs)} dotted paths parsed from {MIGRATION}"
+
+    for class_name, attribute in sorted(pairs):
+        assert class_name in classes, (
+            f"{MIGRATION} refers to `{class_name}.{attribute}`, but the package "
+            f"defines no class named {class_name!r}."
+        )
+        if _has_member(classes[class_name], attribute):
+            continue
+        assert attribute in removed, (
+            f"{MIGRATION} refers to `{class_name}.{attribute}`, which does not "
+            f"exist and is not listed in a 0.1.2 column as removed. A reader "
+            f"cannot tell a name this release deleted from one it mistyped."
+        )
+
+
+# ----------------------------------------------------------------------
+# SPEC.md against the registry it enumerates
+# ----------------------------------------------------------------------
+def test_spec_channel_table_matches_the_audit_registry():
+    """SPEC promises one module per channel of inflation; the registry ships them.
+
+    The table and the registry are two statements of the same count. Nothing
+    connected them, so the documents could have claimed nine channels while the
+    code shipped eight -- which is criterion 5's failure told from the outside.
+    """
+    lines = (ROOT / SPEC).read_text(encoding="utf-8").splitlines()
+    rows = [
+        line
+        for line in lines
+        if line.startswith("|")
+        and "Module" not in line
+        and set(line) - set("|- :")
+    ]
+    assert len(rows) == len(AUDIT_REGISTRY), (
+        f"{SPEC} lists {len(rows)} channels of inflation and AUDIT_REGISTRY "
+        f"ships {len(AUDIT_REGISTRY)} audits. One of them is wrong."
+    )

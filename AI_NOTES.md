@@ -755,11 +755,42 @@ lesson is not that the machinery failed; it is that a rule written into the tree
 gets a check for free, and a rule left in a reply gets nothing. The failure was
 in the four hours between the two.
 
+**What the inventory found.** Writing that check meant counting the class it
+belongs to, and the count is worth keeping, because a gap somebody sized is a
+different object from one nobody looked at.
+
+| Kind of claim | Size | Checked |
+|---|---|---|
+| `CLAUDE.md` declined/deferred vs `PLAN.md` | 4 items | yes |
+| `MIGRATION.md` identifiers vs the package | 14 current, 8 removed, 7 attribute paths | yes |
+| `SPEC.md` channel table vs `AUDIT_REGISTRY` | 9 vs 9 | yes |
+| Prose cross-references between the seven documents | ~93 mentions across 9 files | no |
+| Module docstrings citing documents | several | no |
+| `file:line` references | 6 | removed instead |
+
+Two of those six line references were **already stale** when counted:
+`survivorship.py` and `README.md` no longer said at the cited line what was
+quoted beside it. Both had been moved by the very commits that corrected the
+claims the references pointed at — the reference and its subject were edited in
+the same change, and only one of them was updated. They are gone now; a path
+plus a quoted phrase locates a claim and survives an edit, and a line number
+adds drift while locating nothing a search would not.
+
+The prose mentions are left unchecked deliberately. A sentence asserting that
+another document "sets the bar" or "records the reason" has no structure to
+parse, and a pattern fitted to today's sentences is the failure this repository
+has now diagnosed three times. The three checkable kinds were checked because
+each had a structure already in the file — version-named table columns, heading
+prefixes, a table with one row per registry entry — and none needed a convention
+invented for the machine.
+
 **Constraint added.** A deferral is recorded in a tracked file at the moment it
 is made, naming the file it is deferred to, never in a reply naming a task that
-has not been given. And a claim one document makes about another is checked like
-any other claim: if `CLAUDE.md` says a decision is written down somewhere, a test
-asserts that it is.
+has not been given. A claim one document makes about another is checked like any
+other claim: if `CLAUDE.md` says a decision is written down somewhere, a test
+asserts that it is. And a reference to a place in the tree names a path and
+quotes what it relies on, never a line number, because a line number is a copy
+of a fact that moves.
 
 ---
 
