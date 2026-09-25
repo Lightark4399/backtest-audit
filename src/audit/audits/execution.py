@@ -65,7 +65,8 @@ from ..panel import DATE, ENTITY, LABEL, PRED, Panel
 # on an execution that was not available.
 COLLAPSE_RATIO = 0.25
 
-# Below this |IC| a score is indistinguishable from noise on a panel of this size.
+# Fixed cut-off: below this |IC| the lag-0 score is treated as too small to read
+# a decay profile from. A chosen level, not a significance bound.
 MIN_TESTABLE_IC = 0.02
 
 

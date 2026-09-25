@@ -21,14 +21,15 @@ delisted.
 How this module reconstructs the universe, and what that costs
 --------------------------------------------------------------
 It does not consult a listing and delisting calendar. It derives membership from
-the panel it was given: an entity counts as delisted when it is absent from the
-panel's final dates, and the survivors-only arm is that panel with those
-entities dropped.
+the panel it was given: the tail window is the panel's final ``tail_dates``
+dates (the last date by default), an entity counts as absent when it appears on
+none of them, and the survivors-only arm is that panel with those entities
+dropped. Absence from the tail window is not verified delisting.
 
 The consequence is a blind spot, and it is the worst-placed one available. **On
 a panel backfilled from a survivor list this audit reports no attrition** --
 because the entities that failed were never in the panel to be missing from its
-final dates -- and that is precisely the data whose survivorship bias most needs
+tail window -- and that is precisely the data whose survivorship bias most needs
 catching. The module says so in its own verdict rather than leaving the reader
 to infer it: the NO ATTRITION result states that a universe assembled without
 its delisted entities looks exactly like an honest one from here, and asks the
@@ -43,15 +44,26 @@ worth doing, and ``CROSS_REPO_AUDIT.md`` records why it was left unwired here.
 
 What this module measures
 -------------------------
-Two scores on the same model and the same dates:
+Two scores of the same model over the same nominal evaluation window:
 
-* **survivors-only** -- the universe restricted to entities present on the final
-  date, which is what backfilling a current constituent list produces.
-* **point-in-time universe** -- membership by listing and delisting dates.
+* **survivors-only** -- the panel restricted to entities seen at least once in
+  the tail window. This is a filter on the input panel, not a reconstruction
+  of a current constituent list: with ``tail_dates > 1`` an entity absent on
+  the last date is still kept if it appears earlier in the window.
+* **as-supplied panel** -- the panel exactly as supplied. It is point-in-time
+  only if the caller built it from dated membership; this module neither checks
+  nor reconstructs that.
 
-The gap is the inflation attributable to survivorship. As with the point-in-time
-audit, both arms are scored over the same evaluation dates so the difference
-isolates universe composition rather than sampling.
+The gap is the sensitivity of the score to restricting the input panel to the
+entities seen in its tail window. It reads as survivorship bias only once the
+caller has established how the input panel's membership was built; this module
+cannot establish that.
+
+Both arms cover the same nominal evaluation window, but each IC is computed
+independently, and a date is scored only where that arm's cross-section is
+usable (enough entities, not constant). The dates each arm actually scores need
+not coincide, so the gap can mix a composition difference with a difference in
+scorable dates. That boundary is recorded, not corrected, here.
 
 An honest caveat about magnitude
 --------------------------------
@@ -73,13 +85,24 @@ import numpy as np
 from ..metrics.ic import cross_sectional_ic, demeaned_ic
 from ..panel import DATE, ENTITY, Panel
 
-# Below this the difference is indistinguishable from estimation noise.
+# Fixed diagnostic cut-off on survivors-only minus as-supplied demeaned IC:
+# above +MATERIAL_GAP is FAIL, anything else finite is PASS, a non-finite gap is
+# INCONCLUSIVE. A chosen materiality level, not calibrated to sampling error and
+# not a significance bound.
 MATERIAL_GAP = 0.01
 
 
 @dataclass
 class SurvivorshipResult:
-    """Comparison of a survivors-only universe against a point-in-time one."""
+    """Comparison of a survivors-only universe against the panel as supplied.
+
+    Field names are kept for compatibility and read as follows: ``pit_*`` hold
+    the as-supplied panel's scores, point-in-time only if the caller built it
+    that way; ``survivors_*`` hold the scores of the entities seen in the tail
+    window (the final ``tail_dates`` dates); ``n_entities_delisted`` counts
+    entities absent from the whole tail window, not verified delistings;
+    ``gap`` is survivors minus as-supplied.
+    """
 
     survivors_ic: float
     pit_ic: float
@@ -95,7 +118,7 @@ class SurvivorshipResult:
 
     @property
     def gap(self) -> float:
-        """Survivors-only score minus point-in-time score, on the demeaned IC."""
+        """Survivors-only score minus as-supplied score, on the demeaned IC."""
         return self.survivors_demeaned_ic - self.pit_demeaned_ic
 
     def to_dict(self) -> dict:
@@ -115,13 +138,23 @@ class SurvivorshipResult:
         }
 
 
-def surviving_entities(panel: Panel, tail_dates: int = 1) -> set:
-    """Entities observed on the final ``tail_dates`` dates of the panel.
+def tail_window_phrases(tail_dates: int) -> tuple[str, str]:
+    """How the tail window reads in a sentence: (present ..., absent ...)."""
+    if tail_dates == 1:
+        return "on the final date", "absent on the final date"
+    return (
+        f"at least once in the final {tail_dates} dates",
+        f"absent from all of the final {tail_dates} dates",
+    )
 
-    This reconstructs what a current-constituent-list universe would contain.
-    ``tail_dates > 1`` tolerates an entity missing the very last day for reasons
-    unrelated to delisting -- a holiday, a data gap -- which would otherwise be
-    misclassified as a failure and overstate the bias.
+
+def surviving_entities(panel: Panel, tail_dates: int = 1) -> set:
+    """Entities observed at least once on the final ``tail_dates`` dates of the panel.
+
+    A filter on the input panel, not a reconstruction of a current constituent
+    list. ``tail_dates > 1`` keeps an entity missing the very last day -- for a
+    holiday, a data gap, or any other reason -- if it appears earlier in the
+    window.
     """
     dates = panel.dates
     if len(dates) == 0:
@@ -147,13 +180,16 @@ def run_survivorship_audit(
     tail_dates: int = 1,
     scope: str = "test",
 ) -> SurvivorshipResult:
-    """Score the same predictions on a survivors-only and a point-in-time universe.
+    """Score the same predictions on a survivors-only panel and the panel as supplied.
 
-    The panel supplied must already be the point-in-time one -- containing every
-    entity for the dates it actually traded. The survivors-only arm is derived
-    from it by dropping entities absent at the end, which is the operation a
-    backfilled constituent list performs implicitly.
+    The survivors-only arm is the panel supplied with the entities absent from
+    the tail window dropped. Both arms cover the same nominal evaluation window;
+    the dates each can actually score need not coincide. The gap measures the
+    score's sensitivity to that filter, and reads as survivorship bias only if
+    the panel supplied was built from historical membership of a defined
+    research universe.
     """
+    present, absent = tail_window_phrases(tail_dates)
     survivors = surviving_entities(panel, tail_dates)
     delisted = delisted_entities(panel, tail_dates)
 
@@ -175,8 +211,8 @@ def run_survivorship_audit(
             survivor_rate=rate,
             passed=None,
             verdict=(
-                "NO ATTRITION: every entity is present on the final date, so a "
-                "survivors-only universe is identical to the point-in-time one. "
+                f"NO ATTRITION: every entity is present {present}, so a "
+                "survivors-only universe is identical to the panel as supplied. "
                 "This says nothing about a real universe -- a panel assembled "
                 "without delisted entities in the first place would look exactly "
                 "like this, and the absence would be invisible here. Check that "
@@ -190,33 +226,53 @@ def run_survivorship_audit(
     surv_dm = demeaned_ic(surv_panel).mean
     gap = surv_dm - pit_dm
 
-    if np.isfinite(gap) and gap > MATERIAL_GAP:
+    if not np.isfinite(gap):
+        # After the no-attrition path, which returns early: with nothing absent
+        # at the end there is no survivors-only arm to compare.
+        undefined = [
+            name
+            for name, v in (("survivors-only", surv_dm), ("as-supplied", pit_dm))
+            if not np.isfinite(v)
+        ]
+        passed = None
+        verdict = (
+            f"INCONCLUSIVE: the {' and '.join(undefined)} demeaned IC could not be "
+            f"computed, so there is no gap to compare despite {len(delisted)} "
+            f"entities {absent}. A demeaned IC is undefined when no "
+            "evaluation date has a usable cross-section (too few entities, or no "
+            "variation). This is neither a zero gap nor a gap within the threshold."
+        )
+    elif gap > MATERIAL_GAP:
         passed = False
         verdict = (
-            f"FAIL: restricting to the {len(survivors)} entities present at the "
-            f"end raises the demeaned IC by {gap:+.4f} ({surv_dm:+.4f} vs "
-            f"{pit_dm:+.4f}). The {len(delisted)} entities that disappeared "
-            f"({1 - rate:.1%} of the universe) were harder to predict, and a "
-            "backtest that omitted them was scored on a sample selected partly "
-            "on outcome."
+            f"FAIL: the {len(survivors)} entities present {present} score "
+            f"{surv_dm:+.4f} on the demeaned IC against {pit_dm:+.4f} for the "
+            f"panel as supplied, a gap of {gap:+.4f}, above the fixed "
+            f"{MATERIAL_GAP} materiality threshold. {len(delisted)} entities "
+            f"({1 - rate:.1%}) are {absent}; absence is not "
+            "verified delisting. The gap alone does not show why those entities "
+            "score differently or that the sample was selected on outcome; it "
+            "reads as survivorship bias only if the input panel was built from "
+            "dated membership."
         )
-    elif np.isfinite(gap) and gap < -MATERIAL_GAP:
+    elif gap < -MATERIAL_GAP:
         passed = True
         verdict = (
-            f"PASS (opposite direction): the survivors-only universe scores "
-            f"{-gap:+.4f} LOWER. The entities that disappeared were easier to "
-            "predict, so excluding them understates performance rather than "
-            "flattering it. For a volatility-style target this is plausible -- "
-            "entities heading for delisting are often more volatile and more "
-            "persistent -- but it is worth confirming the delisting pattern is "
-            "what you expect."
+            f"PASS (opposite direction): the entities present {present} "
+            f"score {-gap:.4f} LOWER on the demeaned IC than the panel as "
+            f"supplied ({surv_dm:+.4f} vs {pit_dm:+.4f}), beyond the fixed "
+            f"{MATERIAL_GAP} materiality threshold. The gap alone does not show "
+            "why the absent entities score differently, and absence from the "
+            "tail window is not verified delisting."
         )
     else:
         passed = True
         verdict = (
-            f"PASS: dropping the {len(delisted)} non-surviving entities moves the "
-            f"demeaned IC by only {gap:+.4f}. Their exclusion would not have "
-            "materially changed the reported score on this metric."
+            f"PASS: the entities present {present} and the panel as "
+            f"supplied differ by {gap:+.4f} on the demeaned IC, within the fixed "
+            f"{MATERIAL_GAP} materiality threshold -- a diagnostic cut-off, not a "
+            f"significance test. {len(delisted)} entities {absent} "
+            "are excluded from the first figure."
         )
 
     return SurvivorshipResult(

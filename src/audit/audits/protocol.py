@@ -62,7 +62,9 @@ import pandas as pd
 from ..metrics.ic import MIN_CROSS_SECTION, _corr
 from ..panel import DATE, ENTITY, LABEL, PRED, Panel
 
-# Below this the protocols agree to within estimation noise.
+# Fixed diagnostic cut-off on random-K-fold IC minus embargoed walk-forward IC:
+# above +MATERIAL_GAP is FAIL, anything else finite is PASS. A chosen materiality
+# level, not calibrated to sampling error and not a significance bound.
 MATERIAL_GAP = 0.02
 
 
@@ -340,9 +342,10 @@ def compare_protocols(
     else:
         comp.passed = True
         comp.verdict = (
-            f"PASS: the protocols agree to within {abs(inflation):.4f}. The "
-            "target carries little enough serial dependence that random "
-            "splitting does not confer an advantage here."
+            f"PASS: the protocols agree to within {abs(inflation):.4f}. Random "
+            "splitting confers no advantage above the fixed "
+            f"{MATERIAL_GAP} materiality threshold here -- a diagnostic "
+            "cut-off, not a significance test."
         )
 
     comp.detail = {

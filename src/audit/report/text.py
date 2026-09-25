@@ -21,6 +21,7 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
+from ..audits.survivorship import tail_window_phrases
 from ..metrics.ic import ICSeries
 from ..metrics.performance import annualisation_label
 from ..metrics.significance import SignificanceResult
@@ -119,10 +120,13 @@ def format_significance(sig: SignificanceResult, indent: int = 4) -> str:
             f"[lag-1 autocorr {sig.lag1_autocorr:+.2f}]"
         )
     if np.isfinite(sig.effective_n) and sig.information_loss > 0.01:
-        lines.append(
-            f"{pad}effective sample      {sig.effective_n:>8.0f} of {sig.n_obs} days"
-            f"  [{sig.information_loss:.0%} lost to serial dependence]"
-        )
+        count = f"{pad}effective n (AR(1))   {sig.effective_n:>8.0f} of {sig.n_obs} days"
+        loss = f"[{sig.information_loss:.0%} lost to lag-1 dependence]"
+        # At indent 6 the pair runs past WIDTH, so the bracket moves to its own line.
+        if len(count) + 2 + len(loss) <= WIDTH:
+            lines.append(f"{count}  {loss}")
+        else:
+            lines.extend([count, f"{pad}{' ' * 22}{loss}"])
     for n in sig.notes:
         # Notes can be long -- the effective-sample note runs past 150 characters
         # -- and an unwrapped line breaks the report's alignment in a narrow
@@ -320,20 +324,21 @@ def _wrap(text: str, indent: int = 8) -> list[str]:
 
 
 def format_group_decomposition(result) -> str:
-    """Within-group vs between-group split of the pooled score."""
+    """Pooled, within-group and between-group views of the same predictions."""
     mark = {True: "PASS", False: "FAIL", None: "----"}[result.passed]
     out = [_header("GROUP DECOMPOSITION"), ""]
     out.append(f"  Grouping key: {result.group_column}  ({result.n_groups} groups scored)")
     out.append("")
-    out.append(f"  {'Pooled IC (whole cross-section)':<44}{result.pooled_ic:>+12.4f}")
+    out.append(f"  {'Pooled IC (whole cross-section)':<44}{_fmt(result.pooled_ic):>12}")
     out.append(
-        f"  {'Within-group IC (size-weighted)':<44}{result.within_ic_weighted:>+12.4f}"
+        f"  {'Within-group IC (size-weighted)':<44}{_fmt(result.within_ic_weighted):>12}"
     )
     out.append(
-        f"  {'Within-group IC (unweighted)':<44}{result.within_ic_unweighted:>+12.4f}"
+        f"  {'Within-group IC (unweighted)':<44}{_fmt(result.within_ic_unweighted):>12}"
     )
-    out.append(f"  {'Between-group IC (ranking groups)':<44}{result.between_ic:>+12.4f}")
-    out.append(f"  {'Level effect (pooled - within)':<44}{result.level_effect:>+12.4f}")
+    out.append(f"  {'Between-group IC (group averages)':<44}{_fmt(result.between_ic):>12}")
+    out.append(f"  {'Pooled minus within-group':<44}{_fmt(result.level_effect):>12}")
+    out.append("  (three views of the same predictions, not additive components)")
     out.append("")
     out.append(f"  [{mark}]")
     out.extend(_wrap(result.verdict))
@@ -352,21 +357,22 @@ def format_group_decomposition(result) -> str:
 
 
 def format_survivorship(result) -> str:
-    """Survivors-only vs point-in-time universe."""
+    """Survivors-only vs the panel as supplied (point-in-time only if built that way)."""
     mark = {True: "PASS", False: "FAIL", None: "----"}[result.passed]
     out = [_header("SURVIVORSHIP"), ""]
+    _, absent = tail_window_phrases(result.detail.get("tail_dates", 1))
     out.append(
-        f"  {result.n_entities_total} entities, {result.n_entities_delisted} absent "
-        f"at the end ({1 - result.survivor_rate:.1%} attrition)"
+        f"  {result.n_entities_total} entities, {result.n_entities_delisted} {absent} "
+        f"({1 - result.survivor_rate:.1%})"
     )
     out.append("")
     out.append(
-        f"  {'Point-in-time universe (demeaned IC)':<44}{result.pit_demeaned_ic:>+12.4f}"
+        f"  {'As-supplied panel (demeaned IC)':<44}{_fmt(result.pit_demeaned_ic):>12}"
     )
     out.append(
-        f"  {'Survivors only (demeaned IC)':<44}{result.survivors_demeaned_ic:>+12.4f}"
+        f"  {'Present in tail window (demeaned IC)':<44}{_fmt(result.survivors_demeaned_ic):>12}"
     )
-    out.append(f"  {'Gap attributable to survivorship':<44}{result.gap:>+12.4f}")
+    out.append(f"  {'Gap (tail-window subset minus as-supplied)':<44}{_fmt(result.gap):>12}")
     out.append("")
     out.append(f"  [{mark}]")
     out.extend(_wrap(result.verdict))
@@ -381,12 +387,12 @@ def format_pit(result) -> str:
     out.append("")
     out.append(
         f"  {'Restated data (corrections included)':<44}"
-        f"{result.restated_demeaned_ic:>+12.4f}"
+        f"{_fmt(result.restated_demeaned_ic):>12}"
     )
     out.append(
-        f"  {'As-of data (known at the time)':<44}{result.asof_demeaned_ic:>+12.4f}"
+        f"  {'As-of data (known at the time)':<44}{_fmt(result.asof_demeaned_ic):>12}"
     )
-    out.append(f"  {'Look-ahead advantage':<44}{result.gap:>+12.4f}")
+    out.append(f"  {'Look-ahead advantage':<44}{_fmt(result.gap):>12}")
     out.append("")
     out.append(
         f"  {result.n_revisions:,} of {result.n_observations:,} observations "

@@ -1,4 +1,4 @@
-"""Group decomposition: how much of the score comes from ranking across groups?
+"""Group decomposition: does the score hold up inside groups?
 
 A cross-sectional IC computed over a mixed universe answers a question nobody
 asked. If entities fall into groups with systematically different levels --
@@ -20,15 +20,17 @@ Three numbers on the same predictions:
 
 ``within-group``
     IC computed inside each group separately, then averaged across groups
-    weighted by group size. This is the usable ability.
+    weighted by group size. This is the view closest to how a forecast is
+    usually used.
 
 ``between-group``
-    IC of the group-average prediction against the group-average label. This is
-    the part that comes from ranking groups, which a group dummy would capture
-    for free.
+    IC of the group-average prediction against the group-average label: how
+    well the prediction ranks the groups themselves.
 
-The gap between pooled and within-group is the level effect, expressed the same
-way as everything else in the report.
+These are three views of the same predictions, not an additive decomposition:
+pooled is not within-group plus between-group. The reported ``level_effect`` is
+pooled minus within-group; it shows whether the headline overstates the
+within-group view, not how much of the pooled score comes from ranking groups.
 
 Why weighting by size and not equally
 --------------------------------------
@@ -51,7 +53,9 @@ import pandas as pd
 from ..metrics.ic import MIN_CROSS_SECTION, cross_sectional_ic
 from ..panel import DATE, ENTITY, LABEL, PRED, Panel
 
-# Below this the pooled and within-group figures agree to within noise.
+# Fixed diagnostic cut-off on pooled minus size-weighted within-group IC: above
+# +MATERIAL_GAP is FAIL, anything else finite is PASS. A chosen materiality
+# level, not calibrated to sampling error and not a significance bound.
 MATERIAL_GAP = 0.02
 
 
@@ -72,7 +76,12 @@ class GroupDecomposition:
 
     @property
     def level_effect(self) -> float:
-        """Pooled minus within-group: the part attributable to ranking groups."""
+        """Pooled minus size-weighted within-group IC.
+
+        A difference between two views, not an additive component: it does not
+        by itself show how much of the pooled score comes from ranking groups.
+        The name is kept for compatibility.
+        """
         return self.pooled_ic - self.within_ic_weighted
 
     def to_dict(self) -> dict:
@@ -152,8 +161,9 @@ def _within_group_ic(
 def _between_group_ic(panel: Panel, group_col: str, method: str, scope: str) -> float:
     """IC of group-average prediction against group-average label, per date.
 
-    This is the score a predictor would achieve if it knew only which group each
-    entity belonged to -- the free component that a group dummy supplies.
+    How well the prediction ranks the groups themselves. A prediction that
+    encoded only group membership could score highly here; a high value does not
+    by itself show that the pooled score comes from ranking groups.
     """
     view = panel.evaluation_view(scope)
     agg = (
@@ -174,7 +184,7 @@ def decompose_by_group(
     method: str = "spearman",
     scope: str = "test",
 ) -> GroupDecomposition:
-    """Split the cross-sectional IC into within-group and between-group parts."""
+    """Score the same predictions pooled, within groups and between groups."""
     if group_col not in panel.data.columns:
         raise ValueError(
             f"column {group_col!r} not in the panel. Group decomposition needs a "
@@ -188,13 +198,14 @@ def decompose_by_group(
     n_groups = int(table["ic"].notna().sum())
 
     gap = pooled - within_w
+    between_text = f"{between:+.4f}" if np.isfinite(between) else "undefined"
 
     if n_groups < 2:
         passed = None
         verdict = (
-            f"INCONCLUSIVE: only {n_groups} group has a cross-section large "
-            "enough to score. With one group there is no between-group component "
-            "to separate, so the pooled figure is already a within-group one."
+            f"INCONCLUSIVE: fewer than two groups have a cross-section large "
+            f"enough for a within-group IC ({n_groups} scorable), so the pooled "
+            "and within-group views are not compared."
         )
     elif not np.isfinite(gap):
         passed = None
@@ -203,18 +214,29 @@ def decompose_by_group(
         passed = False
         verdict = (
             f"FAIL: pooled IC is {pooled:+.4f} but the size-weighted within-group "
-            f"IC is only {within_w:+.4f}, a gap of {gap:+.4f}. Much of the score "
-            f"comes from ranking {n_groups} groups against each other "
-            f"(between-group IC {between:+.4f}), which a group dummy would supply "
-            "for free. Inside a group -- where a forecast is normally used -- the "
-            "prediction is materially weaker than the headline suggests."
+            f"IC is only {within_w:+.4f}, a gap of {gap:+.4f}, above the fixed "
+            f"{MATERIAL_GAP} materiality threshold; the between-group IC is "
+            f"{between_text}. The pooled headline overstates "
+            "the within-group figure, the view closest to how a forecast is "
+            "usually used. The three are separate views, not additive parts, so "
+            "the gap alone does not show that the score comes from ranking groups."
+        )
+    elif gap < -MATERIAL_GAP:
+        passed = True
+        verdict = (
+            f"PASS (opposite direction): the size-weighted within-group IC "
+            f"({within_w:+.4f}) exceeds pooled ({pooled:+.4f}) by {-gap:.4f}, "
+            f"more than the fixed {MATERIAL_GAP} materiality threshold; the "
+            f"between-group IC is {between_text}. The pooled headline is below "
+            "the within-group figure here, so it does not overstate it."
         )
     else:
         passed = True
         verdict = (
             f"PASS: within-group IC ({within_w:+.4f}) is close to pooled "
-            f"({pooled:+.4f}). The ranking ability survives inside groups, so it "
-            "is not an artefact of group-level differences."
+            f"({pooled:+.4f}), within the fixed {MATERIAL_GAP} materiality "
+            "threshold -- a diagnostic cut-off, not a significance test. This "
+            "does not by itself show positive within-group predictive ability."
         )
 
     return GroupDecomposition(

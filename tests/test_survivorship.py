@@ -23,7 +23,10 @@ from audit.audits.survivorship import (
     run_survivorship_audit,
     surviving_entities,
 )
+from audit.coverage import AuditVerdict
 from audit.panel import DATE, ENTITY, Panel
+from audit.report.text import WIDTH, format_survivorship
+from audit.run import run_baseline_audit
 from audit.synthetic import generate_panel, generate_panel_with_delisting
 
 
@@ -170,3 +173,118 @@ def test_opposite_direction_is_reported_as_a_pass_with_an_explanation():
     assert res.gap < -MATERIAL_GAP
     assert res.passed is True
     assert "opposite direction" in res.verdict.lower()
+
+
+def test_report_names_the_arm_as_the_panel_as_supplied():
+    """The arm is the input panel, not a reconstructed point-in-time universe."""
+    p, _ = generate_panel_with_delisting(delist_hardness=1.0)
+    text = format_survivorship(run_survivorship_audit(p))
+    assert "As-supplied panel (demeaned IC)" in text
+    assert "Point-in-time universe" not in text
+
+
+def test_undefined_gap_is_not_a_pass():
+    """A constant prediction makes every demeaned IC undefined, so the gap is NaN.
+
+    Old behaviour: the NaN fell through to PASS ("moves the demeaned IC by only
+    +nan"). Target: passed=None with an INCONCLUSIVE verdict naming the
+    undefined arm. Migration impact: such inputs now read INCONCLUSIVE, not PASS,
+    in the result, the text and JSON reports, and the coverage manifest; every
+    finite case is unchanged.
+    """
+    p, _ = generate_panel_with_delisting()
+    constant = p.replace_prediction(pd.Series(1.0, index=p.data.index))
+    res = run_survivorship_audit(constant)
+    assert res.n_entities_delisted > 0
+    assert not np.isfinite(res.gap)
+    assert res.passed is None
+    assert res.verdict.startswith("INCONCLUSIVE")
+    assert "survivors-only and as-supplied demeaned IC could not be computed" in res.verdict
+    assert "PASS" not in res.verdict and "nan" not in res.verdict
+
+    audit = run_baseline_audit(constant)
+    assert audit.to_dict()["survivorship"]["passed"] is None
+    entry = audit.to_dict()["audit_coverage"]["audits"]["survivorship"]
+    assert entry["verdict"] == AuditVerdict.INCONCLUSIVE.value
+    text = format_survivorship(audit.survivorship)
+    assert "[----]" in text and "[PASS]" not in text
+    assert "nan" not in text.lower()
+    for label in (
+        "As-supplied panel (demeaned IC)",
+        "Present in tail window (demeaned IC)",
+        "Gap (tail-window subset minus as-supplied)",
+    ):
+        line = next(ln for ln in text.splitlines() if label in ln)
+        assert line.rstrip().endswith("undefined"), line
+    for line in text.splitlines():
+        assert len(line) <= WIDTH, line
+
+    # Precedence: a balanced panel with the same undefined scores is still NO
+    # ATTRITION -- with nobody absent there is no survivors-only arm to compare.
+    balanced, _ = generate_panel(skill=0.4)
+    flat = balanced.replace_prediction(pd.Series(1.0, index=balanced.data.index))
+    control = run_survivorship_audit(flat)
+    assert control.passed is None
+    assert control.verdict.startswith("NO ATTRITION")
+
+
+def _survivors_degraded(p: Panel) -> Panel:
+    survivors = surviving_entities(p)
+    data = p.data.copy()
+    is_survivor = data[ENTITY].isin(survivors)
+    level = data.groupby(ENTITY)["prediction"].transform("mean")
+    data.loc[is_survivor, "prediction"] = level[is_survivor]
+    return Panel(data=data, train_end=p.train_end)
+
+
+@pytest.mark.parametrize(
+    ("case", "passed"),
+    [("coupled", False), ("uncoupled", True), ("opposite", True)],
+)
+def test_finite_verdicts_report_the_measured_subset_gap_only(case, passed):
+    """Every finite verdict states the final-date-subset vs as-supplied gap and
+    does not infer why the absent entities score differently, that they were
+    delisted, or that the sample was selected on outcome."""
+    if case == "coupled":
+        p, _ = generate_panel_with_delisting(delist_hardness=0.0)
+    elif case == "uncoupled":
+        p, _ = generate_panel_with_delisting(delist_hardness=1.0)
+    else:
+        p = _survivors_degraded(generate_panel_with_delisting(delist_hardness=1.0)[0])
+    res = run_survivorship_audit(p)
+    assert res.passed is passed
+    assert "present on the final date" in res.verdict
+    for claim in ("harder to predict", "easier to predict", "selected partly", "disappeared"):
+        assert claim not in res.verdict
+    if passed is False:
+        assert "not verified delisting" in res.verdict
+
+    text = format_survivorship(res)
+    assert "Gap (tail-window subset minus as-supplied)" in text
+    assert "attributable" not in text
+    for line in text.splitlines():
+        assert len(line) <= WIDTH, line
+
+
+def test_tail_window_keeps_an_entity_missing_only_the_last_date():
+    """tail_dates=2 keeps an entity absent on the last date but seen the date
+    before; verdict and report must describe the window, not "the final date"."""
+    p, _ = generate_panel_with_delisting(delist_hardness=0.0)
+    last = p.dates[-1]
+    gap_entity = sorted(surviving_entities(p))[0]
+    data = p.data.loc[~((p.data[ENTITY] == gap_entity) & (p.data[DATE] == last))]
+    holed = Panel(data=data.reset_index(drop=True), train_end=p.train_end)
+
+    assert gap_entity not in surviving_entities(holed, tail_dates=1)
+    assert gap_entity in surviving_entities(holed, tail_dates=2)
+
+    res = run_survivorship_audit(holed, tail_dates=2)
+    assert res.n_entities_surviving == len(surviving_entities(holed, tail_dates=2))
+    assert "at least once in the final 2 dates" in res.verdict
+    assert "on the final date" not in res.verdict
+
+    text = format_survivorship(res)
+    assert "absent from all of the final 2 dates" in text
+    assert "Present in tail window (demeaned IC)" in text
+    for line in text.splitlines():
+        assert len(line) <= WIDTH, line

@@ -201,10 +201,13 @@ any model.
 the strongest baseline — a bounded, interpretable increment (see design notes for
 why the two obvious alternatives are wrong).
 
-**Newey-West significance.** Daily IC series are autocorrelated, so the naive
-`mean / (sd/√T)` t-statistic overstates significance. The report shows the naive
-statistic, the HAC-corrected statistic, and the ratio between the two standard
-errors, so the size of the correction is visible rather than implicit.
+**Newey-West significance.** When a daily IC series is serially dependent,
+ignoring the dependence can misstate significance in either direction. Whether
+the naive `mean / (sd/√T)` t-statistic is too large or too small depends on the
+full dependence structure, and shows in the actual HAC and naive standard errors.
+The report shows the naive statistic, the HAC-corrected statistic, and the ratio
+between the two standard errors, so the size of the correction is visible rather
+than implicit.
 
 **Undefined vs zero.** A correlation on a constant cross-section is *undefined*,
 not zero. The framework reports it as `undefined` with a reason and excludes the
@@ -378,10 +381,17 @@ exist at all, and that makes it the hardest to notice: no anomalous value, no
 correlation behaving oddly, nothing to flag. A universe backfilled from a current
 constituent list simply never loads the entities that failed.
 
-The audit reconstructs membership by listing and delisting dates and scores the
-same model both ways. On a panel where a quarter of entities delist and those
-entities are genuinely harder to forecast, restricting to survivors raises the
-demeaned IC from 0.495 to 0.546 -- **+0.051 of unearned score**.
+The audit scores the same model on the panel as supplied and on the subset of
+entities seen in its tail window -- the final `tail_dates` dates, the last date
+by default. Absence from the tail window is not verified delisting: the audit
+does not read a listing calendar or the store's `universe()` membership, and the
+gap reads as survivorship bias only if the input panel was built from dated
+membership. In a synthetic example whose generator
+(`generate_panel_with_delisting`) removes a quarter of entities and makes exactly
+those entities harder to forecast, the subset present on the final date (the
+default window) raises the demeaned IC from 0.495 to 0.546 -- **+0.051**. That
+gap is survivorship bias because the generator says so; the gap alone would not
+prove it.
 
 The control case is what makes it a measurement rather than an alarm: when
 attrition is *uncoupled* from predictability, the same audit reports a gap of
@@ -441,8 +451,8 @@ one measures whether the rule applies to your data.
 
 ### Effective sample size
 
-The HAC correction already tells you the standard error is understated. It does
-not tell you in a form anyone acts on. The report now also states it as a count
+The HAC and naive standard errors can differ; the report shows both and their
+ratio. Alongside them it adds a count based on an AR(1) approximation
 (illustrative figures, chosen to show strong positive autocorrelation; the demo
 panels are close to independent and report an SE inflation near 1.0):
 
@@ -450,12 +460,16 @@ panels are close to independent and report an SE inflation near 1.0):
     t-stat (naive)            4.21
     t-stat (Newey-West)       2.35   [maxlags=4, p=0.0210]
     SE inflation              1.79x  [lag-1 autocorr +0.75]
-    effective sample            15 of 104 days  [85% lost to serial dependence]
+    effective n (AR(1))         15 of 104 days  [85% lost to lag-1 dependence]
 ```
 
-"104 days of evidence, worth about 15 independent observations" needs no
-knowledge of what a HAC estimator is, and it is the phrasing that stops a reader
-over-reading a t-statistic. Negative autocorrelation is capped at `n_eff = n`
+"104 days of evidence, worth about 15 independent observations" restates the
+lag-1 autocorrelation as a count. It is a heuristic, not the HAC correction
+restated: `n_eff = n(1 - rho)/(1 + rho)` uses only the lag-1 autocorrelation, so
+dependence at lag 2 or beyond can leave `effective_n` at `n` (and
+`information_loss` at 0) while the Newey-West standard error, which weights every
+lag up to `maxlags`, can still differ materially from the naive one. Inference
+comes from the HAC statistic; the count only describes lag-1 dependence. Negative autocorrelation is capped at `n_eff = n`
 rather than awarding a bonus, since claiming more information than observations
 would be the same overstatement in the opposite direction.
 

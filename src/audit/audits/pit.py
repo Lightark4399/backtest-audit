@@ -54,8 +54,12 @@ from ..ingest.duckdb_store import BitemporalStore, RevisionSpec
 from ..metrics.ic import cross_sectional_ic, demeaned_ic
 from ..panel import DATE, ENTITY, LABEL, PRED, Panel
 
-# Below this the difference between the two vintages is indistinguishable from
-# estimation noise on a panel of this size.
+# Fixed diagnostic cut-off on the restated-minus-as-of demeaned IC gap: above
+# +MATERIAL_GAP is FAIL, any other finite gap with revisions present is PASS, and
+# a non-finite gap is INCONCLUSIVE. It is a chosen materiality level, not
+# calibrated to this panel's sampling error, so it is not a significance bound:
+# a gap inside it is not shown to be noise, and a gap outside it is not shown to
+# be statistically significant.
 MATERIAL_GAP = 0.01
 
 
@@ -288,7 +292,23 @@ def run_pit_audit(
             "of health -- a feature built from same-day data is unknowable in "
             "time whether or not any value was ever corrected."
         )
-    elif np.isfinite(gap) and gap > MATERIAL_GAP:
+    elif not np.isfinite(gap):
+        # After the no-revisions path, which holds by construction whatever the
+        # scores: with nothing corrected there is no vintage difference to test.
+        undefined = [
+            name
+            for name, v in (("restated", restated_dm), ("point-in-time", asof_dm))
+            if not np.isfinite(v)
+        ]
+        passed = None
+        verdict = (
+            f"INCONCLUSIVE: the {' and '.join(undefined)} demeaned IC could not be "
+            f"computed, so there is no gap to compare despite {n_rev:,} "
+            f"corrections ({rate:.1%}). A demeaned IC is undefined when no "
+            "evaluation date has a usable cross-section (too few entities, or no "
+            "variation). This is neither a zero gap nor a gap within the threshold."
+        )
+    elif gap > MATERIAL_GAP:
         passed = False
         verdict = (
             f"FAIL: the restated backtest scores {gap:+.4f} higher than the "
@@ -298,7 +318,7 @@ def run_pit_audit(
             "advantage was not available at the time and will not be available "
             "in production."
         )
-    elif np.isfinite(gap) and gap < -MATERIAL_GAP:
+    elif gap < -MATERIAL_GAP:
         passed = True
         verdict = (
             f"PASS (unexpected direction): the point-in-time backtest scores "
@@ -310,9 +330,10 @@ def run_pit_audit(
         passed = True
         verdict = (
             f"PASS: restated and point-in-time scores agree to within "
-            f"{abs(gap):.4f} despite {n_rev:,} corrections ({rate:.1%}). The "
-            "revisions carried no information about the target, so using them "
-            "conferred no advantage."
+            f"{abs(gap):.4f} despite {n_rev:,} corrections ({rate:.1%}). Using "
+            "the corrections conferred no advantage above the fixed "
+            f"{MATERIAL_GAP} materiality threshold -- a diagnostic cut-off, not "
+            "a significance test."
         )
 
     result = PITResult(

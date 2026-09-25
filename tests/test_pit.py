@@ -13,7 +13,10 @@ import pandas as pd
 import pytest
 
 from audit.audits.pit import MATERIAL_GAP, run_pit_audit
+from audit.coverage import AuditVerdict
 from audit.ingest.duckdb_store import BitemporalStore, RevisionSpec
+from audit.report.text import WIDTH, format_pit
+from audit.run import run_baseline_audit
 from audit.synthetic import generate_panel
 
 
@@ -239,3 +242,54 @@ def test_result_serialises_for_ci_assertions(observations):
     for key in ("gap", "restated_demeaned_ic", "asof_demeaned_ic", "revision_rate", "passed"):
         assert key in d
     assert np.isfinite(d["gap"])
+
+
+def test_undefined_gap_with_revisions_is_not_a_pass(observations):
+    """Reachable through the public API: with two entities every cross-section is
+    below MIN_CROSS_SECTION, both demeaned ICs are undefined and the gap is NaN.
+
+    Old behaviour: PASS, "agree to within nan". Target: passed=None with an
+    INCONCLUSIVE verdict naming the undefined arm. The no-revisions path keeps
+    precedence (see the control below). Migration impact: such inputs now read
+    INCONCLUSIVE, not PASS, in the result, both reports and the coverage
+    manifest; every finite case is unchanged.
+    """
+    obs, lab, train_end = observations
+    keep = sorted(obs["entity_id"].unique())[:2]
+    obs2 = obs.loc[obs["entity_id"].isin(keep)]
+    res = run_pit_audit(
+        obs2, obs2.copy(), train_end=train_end,
+        revisions=RevisionSpec(fraction=0.3), max_asof_dates=8,
+    )
+    assert res.n_revisions > 0
+    assert not np.isfinite(res.gap)
+    assert res.passed is None
+    assert res.verdict.startswith("INCONCLUSIVE")
+    assert "restated and point-in-time demeaned IC could not be computed" in res.verdict
+    assert "PASS" not in res.verdict and "nan" not in res.verdict
+
+    audit = run_baseline_audit(generate_panel(skill=0.4)[0])
+    audit.pit = res
+    serialised = audit.to_dict()
+    assert serialised["point_in_time"]["passed"] is None
+    entry = serialised["audit_coverage"]["audits"]["point_in_time"]
+    assert entry["verdict"] == AuditVerdict.INCONCLUSIVE.value
+    text = format_pit(res)
+    assert "[PASS]" not in text
+    assert "nan" not in text.lower()
+    for label in (
+        "Restated data (corrections included)",
+        "As-of data (known at the time)",
+        "Look-ahead advantage",
+    ):
+        line = next(ln for ln in text.splitlines() if label in ln)
+        assert line.rstrip().endswith("undefined"), line
+    for line in text.splitlines():
+        assert len(line) <= WIDTH, line
+
+    # Precedence: the same two-entity panel with no revisions is still NO
+    # REVISIONS, not INCONCLUSIVE -- with nothing corrected there is no vintage
+    # difference to test, computable or not.
+    control = run_pit_audit(obs2, obs2.copy(), train_end=train_end, max_asof_dates=8)
+    assert control.passed is None
+    assert control.verdict.startswith("NO REVISIONS")

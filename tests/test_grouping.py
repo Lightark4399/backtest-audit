@@ -14,6 +14,7 @@ import pytest
 
 from audit.audits.grouping import MATERIAL_GAP, decompose_by_group
 from audit.panel import ENTITY, LABEL, PRED, Panel
+from audit.report.text import WIDTH, format_group_decomposition
 from audit.synthetic import generate_panel
 
 
@@ -132,3 +133,106 @@ def test_result_serialises_including_the_per_group_table():
         assert key in d
     assert isinstance(d["per_group"], list)
     assert len(d["per_group"]) >= 2
+
+
+def test_within_above_pooled_is_not_described_as_close_to_pooled():
+    """Opposite direction: the prediction ranks groups backwards but entities
+    within a group correctly, so within-group IC exceeds pooled by far more than
+    the threshold. The result stays a PASS (unchanged behaviour) but the verdict
+    must not claim the two figures are close."""
+    p, _ = generate_panel(skill=0.5)
+    d = p.data.copy()
+    offset = d["group"].astype(float) * 3.0
+    d[LABEL] = d[LABEL] + offset
+    d[PRED] = d[PRED] - offset
+    res = decompose_by_group(Panel(data=d, train_end=p.train_end, label_name=p.label_name))
+    assert res.level_effect < -MATERIAL_GAP
+    assert res.passed is True
+    assert "opposite direction" in res.verdict
+    assert "close to pooled" not in res.verdict
+
+
+def test_within_threshold_pass_names_the_fixed_threshold():
+    p, _ = generate_panel(skill=0.5)
+    res = decompose_by_group(p)
+    assert abs(res.level_effect) < MATERIAL_GAP
+    assert "close to pooled" in res.verdict
+    assert "not a significance test" in res.verdict
+
+
+def test_within_above_pooled_with_positive_between_ic_infers_no_mechanism():
+    """Within > pooled does not mean ranking groups works against the prediction.
+
+    The prediction carries a small positive share of the group offset, so it
+    ranks groups the right way (between-group IC clearly positive) while pooled
+    IC still falls below within-group IC. The verdict must state the figures and
+    not claim the between-group component opposes the prediction.
+    """
+    p, _ = generate_panel(skill=0.5)
+    d = p.data.copy()
+    offset = d["group"].astype(float) * 3.0
+    d[LABEL] = d[LABEL] + offset
+    d[PRED] = d[PRED] + offset * 0.05
+    res = decompose_by_group(Panel(data=d, train_end=p.train_end, label_name=p.label_name))
+    assert res.between_ic > 0.5
+    assert res.level_effect < -MATERIAL_GAP
+    assert res.passed is True
+    assert "opposite direction" in res.verdict
+    assert f"between-group IC is {res.between_ic:+.4f}" in res.verdict
+    assert "works against" not in res.verdict
+
+
+@pytest.mark.parametrize("case", ["group_only", "genuine"])
+def test_verdict_and_report_treat_the_three_ics_as_views_not_parts(case):
+    """FAIL must not say the score comes from ranking groups; the within-threshold
+    PASS must not claim positive within-group ability; the report must not
+    present the difference as an additive effect."""
+    if case == "group_only":
+        res = decompose_by_group(_group_only_panel())
+        assert res.passed is False
+        assert "not additive parts" in res.verdict
+    else:
+        res = decompose_by_group(generate_panel(skill=0.5)[0])
+        assert res.passed is True
+        assert "does not by itself show positive within-group" in res.verdict
+    for claim in ("Much of the score comes from", "group dummy", "survives inside groups"):
+        assert claim not in res.verdict
+
+    text = format_group_decomposition(res)
+    assert "not additive components" in text
+    assert "Level effect" not in text and "(ranking groups)" not in text
+    for line in text.splitlines():
+        assert len(line) <= WIDTH, line
+
+
+def test_no_scorable_group_is_inconclusive_without_claiming_one_group():
+    """With zero noise every group's prediction is constant, so no group has a
+    within-group IC: the verdict must not speak of "one group" nor assert that
+    pooled already equals within, and the report prints undefined, not nan."""
+    res = decompose_by_group(_group_only_panel(noise=0.0))
+    assert res.n_groups == 0
+    assert res.passed is None
+    assert "fewer than two groups" in res.verdict
+    assert "(0 scorable)" in res.verdict
+    assert "one group" not in res.verdict and "already a within-group" not in res.verdict
+    text = format_group_decomposition(res)
+    assert "undefined" in text and "nan" not in text
+
+
+def test_undefined_between_group_ic_reads_undefined():
+    """Two groups: within-group ICs exist but the between-group IC needs at least
+    MIN_CROSS_SECTION groups per date, so it is undefined."""
+    panel = _group_only_panel()
+    d = panel.data.copy()
+    d["group"] = d["group"] % 2
+    d[LABEL] = d[LABEL] - d[PRED] + d["group"] * 3.0
+    d[PRED] = d["group"] * 3.0 + np.random.default_rng(1).normal(0.0, 0.01, len(d))
+    res = decompose_by_group(Panel(data=d, train_end=panel.train_end, label_name=panel.label_name))
+    assert not np.isfinite(res.between_ic)
+    assert res.passed is False
+    assert "between-group IC is undefined" in res.verdict
+    assert "nan" not in res.verdict
+    text = format_group_decomposition(res)
+    between_line = next(ln for ln in text.splitlines() if "Between-group IC" in ln)
+    assert between_line.rstrip().endswith("undefined")
+    assert "nan" not in text

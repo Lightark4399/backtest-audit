@@ -218,3 +218,109 @@ continued existence of these two.
 The remedy, when it is taken, is the pairing AS-03 states: a property over all
 entry points, plus an incident regression pinning the specific call chain that
 was once broken.
+
+---
+
+## Item 3 — outbound: verdict semantics that claim more than the check measures
+
+| | |
+|---|---|
+| Origin | this repository, branch `claude/audit-semantics-closeout` (audit-semantics closeout) |
+| Raised to | `factor-zoo-audit` — **not yet raised**; this repository does not edit or clone the sibling |
+| Date found here | 2026-09-23 |
+| Status | **PENDING** — checked here and corrected within the scope listed under "Check here"; points still open here are listed under "Open here" below; not yet raised with `factor-zoo-audit` |
+
+**Failure classes.** Four, each reusable by any audit that gates on a scalar:
+
+1. **A fixed cut-off described as a statistical bound.** Every `MATERIAL_GAP`
+   comment read "indistinguishable from (estimation) noise". The value is a
+   chosen materiality level on the difference of two point estimates, never
+   calibrated to sampling error.
+2. **A heuristic described as the estimator it approximates.** The
+   `effective_n` docstring said it was "the same information the HAC correction
+   uses". It is an AR(1) formula in the lag-1 autocorrelation; dependence at
+   higher lags can leave it at `n` while the HAC standard error differs
+   materially from the naive one.
+3. **A non-finite statistic falling through to PASS.** The finite check guards
+   only the FAIL branch (`np.isfinite(gap) and gap > MATERIAL_GAP`), and the
+   final `else` assigns `passed = True`, so an undefined gap is reported as a
+   pass whose verdict prints `nan`.
+4. **A comparison arm named after what the caller was supposed to supply.** The
+   survivorship report labelled the input panel "Point-in-time universe"; the
+   module never checks or reconstructs membership.
+
+### Check here
+
+- Class 1: all four `MATERIAL_GAP` comments (`pit`, `protocol`, `survivorship`,
+  `grouping`) and the `MIN_TESTABLE_IC` comment in `execution` now say "not a
+  significance bound"; within-threshold PASS verdicts name the fixed threshold.
+  The grouping verdicts, docstrings and report treat pooled, within-group and
+  between-group IC as three views rather than additive parts: the FAIL verdict
+  no longer says the score comes from ranking groups, the within-threshold PASS
+  no longer claims positive within-group ability, the opposite-direction PASS
+  states only the measured figures, and the report line "Level effect" is now
+  "Pooled minus within-group" with a one-line caveat (the JSON key
+  `level_effect` is kept). The `significance` module docstring no longer says
+  positive autocorrelation always makes the naive standard error too small.
+  Values and operators unchanged.
+- Class 2: the `effective_n` docstring, the report line (now
+  "effective n (AR(1))") and the note say AR(1) approximation. The note no
+  longer infers from a positive lag-1 autocorrelation that the naive
+  t-statistic is optimistic. `tests/test_significance.py` pins the lag-2 case
+  and a positive-lag-1 series whose HAC standard error is below the naive one.
+- Class 3: `protocol` and `grouping` return INCONCLUSIVE on a non-finite gap;
+  `execution` and the alignment shift checks guard it before any verdict.
+  `survivorship` and `pit` did not: both were reproduced through the public API
+  (old verdicts: "moves the demeaned IC by only +nan", "agree to within nan").
+  Fixed by a separate, approved behaviour change: a non-finite gap now gives
+  `passed=None` and an INCONCLUSIVE verdict naming the undefined arm. The
+  no-revisions and no-attrition paths keep precedence. Finite cases are
+  unchanged. The regressions `test_undefined_gap_is_not_a_pass` and
+  `test_undefined_gap_with_revisions_is_not_a_pass` also check the JSON, the
+  text report and the coverage manifest. The text report's IC and gap lines in
+  both blocks now print `undefined` instead of `+nan`, through the existing
+  `_fmt` helper; finite values keep the same format and column, and the JSON
+  still carries the non-finite values unchanged. Related, not the same defect, and
+  deliberately left for a separate decision: the alignment shuffle check
+  (`ok = np.isfinite(perturbed) and`) reports a non-finite result as FAIL
+  rather than INCONCLUSIVE.
+- Class 4: the report line and docstrings now say "As-supplied panel"; the
+  JSON keys `pit_ic` and `pit_demeaned_ic` keep their names for compatibility.
+  The module docstring describes the gap as the score's sensitivity to keeping
+  only the entities seen in the tail window (the final `tail_dates` dates, the
+  last date by default), to be read as survivorship bias only once the caller
+  has established the input's membership basis. The verdicts and the report
+  describe that window rather than "the final date" when `tail_dates > 1`, and
+  state the measured tail-window-subset versus as-supplied gap: "Gap
+  attributable to survivorship" became "Gap (tail-window subset minus
+  as-supplied)", and the verdicts no longer infer
+  that absent entities were delisted, were harder or easier to predict, or
+  that the sample was selected on outcome. README's +0.051 is labelled as a
+  synthetic example with a known generator. JSON keys (`survivors_*`, `pit_*`,
+  `n_entities_delisted`, `gap`) are kept; the result docstring states what
+  each holds.
+
+### Open here
+
+Recorded, not corrected, in this batch:
+
+- The alignment shuffle check (`ok = np.isfinite(perturbed) and`) reports a
+  non-finite result as FAIL rather than INCONCLUSIVE.
+- `survivorship` scores both arms over the same nominal evaluation window, but
+  computes each IC independently, so the dates each arm can actually score
+  (enough entities, non-constant cross-section) need not coincide. The gap can
+  therefore mix a composition difference with a difference in scorable dates.
+  The module docstring states this boundary; the algorithm is unchanged.
+- `survivorship` does not validate `tail_dates`. `surviving_entities` slices
+  `dates[-tail_dates:]`, so `0` selects every date, a negative value `-k`
+  selects all but the first `k` dates, and a value above the number of panel
+  dates selects every date. The verdicts and report still describe the window
+  as "the final N dates" (e.g. "the final 0 dates", "the final -1 dates"), so
+  the text and the slice disagree. Pre-existing; input validation or a change
+  to the slice is a separate behaviour decision, not made in this batch.
+
+This list is what was found by the checks in this item, not the result of a
+general audit of the repository; other open points may exist.
+
+Closing this item requires the four classes raised with `factor-zoo-audit` by
+the maintainer, and a decision on each point under "Open here".

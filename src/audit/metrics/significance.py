@@ -7,14 +7,17 @@ autocorrelation from persistent features, from slowly-varying market regimes, an
 from the fact that a model retrained infrequently makes systematically similar
 errors on consecutive days.
 
-With positive autocorrelation the effective sample size is smaller than T, so the
-naive standard error is too small and the t-statistic too large. The fix is a
-heteroskedasticity- and autocorrelation-consistent (HAC / Newey-West) standard
-error, obtained by regressing the IC series on a constant.
+Serial dependence changes the standard error of the mean. Whether the naive
+standard error is too small or too large depends on the full dependence
+structure -- the sign and size of the autocovariances at every lag -- not on the
+lag-1 value alone. A heteroskedasticity- and autocorrelation-consistent (HAC /
+Newey-West) standard error, obtained by regressing the IC series on a constant,
+estimates it from the data up to ``maxlags``.
 
-This matters for the framework's purpose: an inflated t-statistic is another way
-a backtest can look more trustworthy than it is, so the tool reports both the
-naive and the HAC statistic side by side and makes the gap visible.
+This matters for the framework's purpose: a t-statistic computed under the
+wrong independence assumption can make a backtest look more or less trustworthy
+than it is, so the tool reports both the naive and the HAC statistic side by
+side and makes the difference visible.
 
 Lag selection
 -------------
@@ -51,17 +54,20 @@ class SignificanceResult:
 
     @property
     def effective_n(self) -> float:
-        """Independent-observation equivalent of the sample, given serial dependence.
+        """AR(1) approximation to the independent-observation equivalent of the sample.
 
-        For an AR(1)-like series with lag-1 autocorrelation rho,
+        Assuming the series is AR(1) with lag-1 autocorrelation rho,
 
             n_eff = n * (1 - rho) / (1 + rho)
 
-        This is the same information the HAC correction uses, restated as a
-        count. The restatement matters for communication: "the standard error is
-        1.27x larger" requires knowing what a HAC estimator is, whereas "104 days
-        of evidence, worth about 61 independent observations" does not, and it is
-        the second phrasing that stops a reader over-reading a t-statistic.
+        This is a heuristic diagnostic, not a restatement of the HAC correction.
+        It sees only lag 1, whereas the Newey-West standard error weights every
+        lag up to ``maxlags``: a series whose dependence sits at lag 2 or beyond
+        can show no loss here while the HAC standard error can differ materially
+        from the naive one. The HAC statistic is the inference; this count only
+        restates the lag-1 autocorrelation as a number of observations ("104
+        days of evidence, worth about 61 independent observations under
+        AR(1)").
 
         Returns n unchanged when rho is non-positive: negative autocorrelation
         would formally imply MORE independent information than observations, and
@@ -79,18 +85,19 @@ class SignificanceResult:
 
     @property
     def information_loss(self) -> float:
-        """Share of the nominal sample lost to serial dependence."""
+        """Share of the nominal sample lost to lag-1 dependence, under the AR(1)
+        approximation of ``effective_n``; zero does not rule out dependence at
+        higher lags."""
         if self.n_obs <= 0:
             return float("nan")
         return 1.0 - self.effective_n / self.n_obs
 
     @property
     def se_inflation(self) -> float:
-        """How much larger the HAC standard error is than the naive one.
+        """Ratio of the HAC standard error to the naive one.
 
-        A value well above 1 means autocorrelation was materially deflating the
-        naive standard error; reporting it makes the correction's effect explicit
-        rather than leaving the reader to compare two t-statistics.
+        The two standard errors can differ; the ratio shows by how much. It is
+        not attributed here to any particular sign or lag of dependence.
         """
         if not np.isfinite(self.naive_se) or self.naive_se <= 0:
             return float("nan")
@@ -187,9 +194,11 @@ def newey_west_tstat(
     if np.isfinite(ac1) and ac1 > 0.2:
         n_eff = n * (1.0 - min(ac1, 0.99)) / (1.0 + min(ac1, 0.99))
         notes.append(
-            f"lag-1 autocorrelation {ac1:.2f}: {n} observations carry about "
-            f"{n_eff:.0f} independent observations' worth of information, so the "
-            "naive t-statistic is optimistic"
+            f"lag-1 autocorrelation {ac1:.2f}: under an AR(1) approximation, {n} "
+            f"observations carry about {n_eff:.0f} independent observations' "
+            "worth of information. This is a lag-1 heuristic, not a statement "
+            "about the naive or HAC standard error; dependence beyond lag 1 is "
+            "not in this count"
         )
 
     return SignificanceResult(

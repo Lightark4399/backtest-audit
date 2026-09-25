@@ -124,6 +124,7 @@ class PerformanceStats:
     sharpe_tstat: float
     sharpe_tstat_hac: float
     pnl_autocorr: float
+    # AR(1) lag-1 approximation; see SignificanceResult.effective_n.
     effective_n: float
     detail: dict = field(default_factory=dict)
 
