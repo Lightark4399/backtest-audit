@@ -122,7 +122,7 @@ first survivorship generator was too weak to demonstrate anything.
 
 ## Current status
 
-Version 0.2.0 has a registry-backed audit coverage manifest. The panel contract,
+Version 0.2.1 has a registry-backed audit coverage manifest. The panel contract,
 baseline decomposition,
 alignment, point-in-time vintage comparison, survivorship, grouping, validation
 protocol, PnL, execution timing and selection-bias modules are implemented. The
@@ -299,6 +299,38 @@ regression pinning the specific call chain.
 Rebuild every training set at its historical cutoff from the observations and
 universe then knowable. The existing PIT comparison measures evaluation-vintage
 impact and must not be described as full historical retraining.
+
+### Future issue: shared scorable dates for the survivorship arms
+
+`run_survivorship_audit` scores both arms over the same nominal evaluation
+window but computes each IC independently, so the dates each arm can actually
+score (enough entities, non-constant cross-section) need not coincide. The
+reported gap can therefore mix a composition difference with a difference in
+scorable dates, and is not presented as isolating a pure composition effect.
+Accepted by the maintainer on 2026-09-28 as a current limitation; see
+`CROSS_REPO_AUDIT.md` Item 3.
+
+**The remedy:** score both arms only on the dates both can score, and report
+each arm's scorable-date count. That changes finite results, so it is a
+behaviour change with its own migration note, not a wording fix.
+
+**The condition that would make it worth doing:** a known-truth case in which
+the arms' scorable dates actually differ. In the three shipped delisting
+panels both arms scored the same 104 dates (read-only check, 2026-09-27), so
+no current case exercises the difference.
+
+### Future issue: `scope` in direct calls to `run_survivorship_audit`
+
+`run_survivorship_audit(panel, scope=...)` passes `scope` to the raw
+cross-sectional IC but not to `demeaned_ic`, which always scores the test
+slice; the gap and the verdict use the demeaned IC. The runner always passes
+`"test"`, so shipped reports are consistent. A direct call with `scope="all"`
+reports raw ICs over all dates next to a gap computed over the test slice
+only. Not changed.
+
+**The remedy:** either reject any `scope` other than `"test"` with a
+`ValueError`, or state in the result which period each figure covers. Either
+is a public-API behaviour decision.
 
 ---
 

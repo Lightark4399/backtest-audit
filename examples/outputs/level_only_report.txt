@@ -86,13 +86,15 @@ GROUP DECOMPOSITION
   Pooled IC (whole cross-section)                  +0.6028
   Within-group IC (size-weighted)                  +0.5980
   Within-group IC (unweighted)                     +0.5934
-  Between-group IC (ranking groups)                +0.5923
-  Level effect (pooled - within)                   +0.0048
+  Between-group IC (group averages)                +0.5923
+  Pooled minus within-group                        +0.0048
+  (three views of the same predictions, not additive components)
 
   [PASS]
-        PASS: within-group IC (+0.5980) is close to pooled (+0.6028). The
-        ranking ability survives inside groups, so it is not an artefact of
-        group-level differences.
+        PASS: within-group IC (+0.5980) is close to pooled (+0.6028), within
+        the fixed 0.02 materiality threshold -- a diagnostic cut-off, not a
+        significance test. This does not by itself show positive
+        within-group predictive ability.
 
     group               n rows   typical n        IC
     0                    3,120          30   +0.5748
@@ -104,15 +106,15 @@ GROUP DECOMPOSITION
 SURVIVORSHIP
 ==============================================================================
 
-  120 entities, 0 absent at the end (0.0% attrition)
+  120 entities, 0 absent on the final date (0.0%)
 
-  Point-in-time universe (demeaned IC)             +0.0006
-  Survivors only (demeaned IC)                     +0.0006
-  Gap attributable to survivorship                 +0.0000
+  As-supplied panel (demeaned IC)                  +0.0006
+  Present in tail window (demeaned IC)             +0.0006
+  Gap (tail-window subset minus as-supplied)       +0.0000
 
   [----]
         NO ATTRITION: every entity is present on the final date, so a
-        survivors-only universe is identical to the point-in-time one. This
+        survivors-only universe is identical to the panel as supplied. This
         says nothing about a real universe -- a panel assembled without
         delisted entities in the first place would look exactly like this,
         and the absence would be invisible here. Check that the source
@@ -135,8 +137,8 @@ READING
 PROVENANCE
 ==============================================================================
 
-  auditor_version         0.1.2
+  auditor_version         0.2.1
   build_commit            unknown
   audited_project_commit  unknown
-  generated_at            2026-09-06T12:10:17+00:00
+  generated_at            2026-09-28T15:37:44+00:00
   python                  3.12.10

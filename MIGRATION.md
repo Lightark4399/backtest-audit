@@ -1,5 +1,96 @@
 # MIGRATION
 
+## 0.2.0 → 0.2.1
+
+No JSON field is renamed or removed, and no reported number changes where
+every compared score is defined. What changes: the verdict when a compared score
+is undefined, one invalid argument that now raises, and the wording of the text
+report and of several verdicts.
+
+### 1. An undefined score is INCONCLUSIVE, not PASS or FAIL
+
+- `run_pit_audit` and `run_survivorship_audit`: when the gap cannot be computed
+  because a demeaned IC is undefined, `passed` is now `None` and the verdict
+  starts with INCONCLUSIVE. Before, `passed` was `True` and the verdict read
+  "agree to within nan" or "moves the demeaned IC by only +nan". The
+  no-revisions and no-attrition results still take precedence.
+- `run_shuffle_test` (alignment shuffle check): when the baseline or the
+  shuffled IC is not finite, `passed` is now `None` with an INCONCLUSIVE
+  verdict. Before, the result looked only at the shuffled IC: a non-finite
+  shuffled IC gave `False` with a FAIL verdict blaming the evaluation path, and
+  a non-finite baseline with a finite shuffled IC gave `True` below the
+  tolerance and `False` at or above it. `alignment_summary` counts the new
+  result as inconclusive and the coverage manifest reads INCONCLUSIVE.
+- `run_shift_test`: `passed` is unchanged (`None`); the verdict for an undefined
+  baseline now says the IC could not be computed instead of "too close to
+  zero".
+- Where every compared score is finite, thresholds, comparisons and `passed`
+  are unchanged.
+
+**Migration.** Treat `passed is None` as "no conclusion". A gate on
+`passed is True` that relied on the old PASS for undefined scores now sees
+`None`; a gate on `passed is False` for alignment no longer fires when the ICs
+are undefined.
+
+### 2. An invalid `tail_dates` raises `ValueError`
+
+`run_survivorship_audit`, `surviving_entities` and `delisted_entities` now
+require, for a non-empty panel, `tail_dates` between 1 and the panel's number of
+dates. Before, `0` or a value beyond the panel silently used every date and a
+negative value dropped the first dates, while the report still said "the final
+N dates". An empty panel still returns an empty set. The runner always uses 1
+and is unaffected.
+
+**Migration.** Pass a value in range; catch `ValueError` if the value comes from
+user input.
+
+### 3. Text report wording
+
+| Before | Now |
+|---|---|
+| Point-in-time universe (demeaned IC) | As-supplied panel (demeaned IC) |
+| Survivors only (demeaned IC) | Present in tail window (demeaned IC) |
+| Gap attributable to survivorship | Gap (tail-window subset minus as-supplied) |
+| N absent at the end (x% attrition) | N absent on the final date (x%), or absent from all of the final N dates |
+| Between-group IC (ranking groups) | Between-group IC (group averages) |
+| Level effect (pooled - within) | Pooled minus within-group, followed by a one-line caveat |
+| effective sample … lost to serial dependence | effective n (AR(1)) … lost to lag-1 dependence |
+| `+nan` in PIT, survivorship, grouping and alignment figures | `undefined` |
+
+Verdict wording also changed in the survivorship, grouping, PIT, protocol and
+alignment checks, and the significance note now calls effective n an AR(1)
+approximation. Numbers in those lines are unchanged.
+
+**Migration.** Anything that matches report text or verdict strings must be
+updated. Read the structured fields instead where possible.
+
+### 4. JSON fields kept, and how to read them
+
+| Field | Holds |
+|---|---|
+| `pit_ic`, `pit_demeaned_ic` | the survivorship scores of the panel as supplied, point-in-time only if the caller built it that way |
+| `survivors_ic`, `survivors_demeaned_ic` | the scores of the entities seen in the tail window |
+| `n_entities_delisted` | entities absent from the whole tail window, not verified delistings |
+| `gap` | the survivorship gap: tail-window subset minus the panel as supplied |
+| `level_effect` | pooled minus size-weighted within-group IC, a difference between two views rather than an additive component |
+| `effective_n`, `information_loss` | an AR(1) heuristic from the lag-1 autocorrelation, not a restatement of the HAC correction |
+
+No key was added, removed or renamed.
+
+### 5. Shipped examples
+
+Ten files in `examples/outputs` were regenerated from the 0.2.1 wheel:
+`drifting_report`, `genuine_skill_report`, `level_only_report`,
+`pipeline_clean_report` and `pipeline_leaky_report`, each `.txt` and `.json`.
+Only report wording and provenance differ; every number, JSON key and `passed`
+value is unchanged. The other eleven files are unchanged; they carry no
+provenance block. `build_commit` reads `unknown` because the release build does
+not stamp it. The 0.2.0 versions remain available with
+`git show v0.2.0:examples/outputs/<file>`; they were generated at `ebed862` and
+record `auditor_version` 0.1.2.
+
+---
+
 ## 0.1.2 → 0.2.0
 
 A minor release, not a patch. The distribution and CLI are renamed, a reported

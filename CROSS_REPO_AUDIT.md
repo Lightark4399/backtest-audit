@@ -226,9 +226,9 @@ was once broken.
 | | |
 |---|---|
 | Origin | this repository, branch `claude/audit-semantics-closeout` (audit-semantics closeout) |
-| Raised to | `factor-zoo-audit` — **not yet raised**; this repository does not edit or clone the sibling |
+| Raised to | `factor-zoo-audit` — the four classes were passed on by the maintainer on 2026-09-23; this repository does not edit or clone the sibling. The sibling recorded its check in its own `CROSS_REPO_AUDIT.md`, section "Four-class wording and verdict check — 2026-09-23", added in `bb92bc1`. Checked read-only on 2026-09-27 through the GitHub API: sibling `main` is `287be9b` and contains `bb92bc1`. That record states that backtest-audit was not read and that archived outputs and rendered bundles were not inspected; its per-class results are `no-defect-found` for classes 1–3 (display of a NaN `tstat` left as a follow-up) and `naming-ambiguity`, names retained, for class 4. The points added here after 2026-09-23 (three views not additive, tail-window wording, scorable dates, `tail_dates` input range, `undefined` in place of `+nan`) were not part of that check |
 | Date found here | 2026-09-23 |
-| Status | **PENDING** — checked here and corrected within the scope listed under "Check here"; points still open here are listed under "Open here" below; not yet raised with `factor-zoo-audit` |
+| Status | **CHECKED_CLEAN** — limited to the review scope defined in this item: checked here and corrected within the scope listed under "Check here"; one current limitation accepted by the maintainer and registered under "Accepted limitation" below. Not a claim that either repository is free of defects: `factor-zoo-audit` checked the four classes passed on 2026-09-23, and the points added here after that date were outside that check |
 
 **Failure classes.** Four, each reusable by any audit that gates on a scalar:
 
@@ -280,10 +280,9 @@ was once broken.
   text report and the coverage manifest. The text report's IC and gap lines in
   both blocks now print `undefined` instead of `+nan`, through the existing
   `_fmt` helper; finite values keep the same format and column, and the JSON
-  still carries the non-finite values unchanged. Related, not the same defect, and
-  deliberately left for a separate decision: the alignment shuffle check
-  (`ok = np.isfinite(perturbed) and`) reports a non-finite result as FAIL
-  rather than INCONCLUSIVE.
+  still carries the non-finite values unchanged. The alignment shuffle check,
+  which reported a non-finite result as FAIL, is covered under "Previously
+  open, now handled" below.
 - Class 4: the report line and docstrings now say "As-supplied panel"; the
   JSON keys `pit_ic` and `pit_demeaned_ic` keep their names for compatibility.
   The module docstring describes the gap as the score's sensitivity to keeping
@@ -299,28 +298,54 @@ was once broken.
   synthetic example with a known generator. JSON keys (`survivors_*`, `pit_*`,
   `n_entities_delisted`, `gap`) are kept; the result docstring states what
   each holds.
+- Previously open, now handled:
+  - Alignment shuffle check (`run_shuffle_test`): when the baseline or the
+    shuffled IC is not finite it now returns `passed=None` with an INCONCLUSIVE
+    verdict, so `alignment_summary` counts it as inconclusive, the coverage
+    manifest reads INCONCLUSIVE and the report shows `[----]`. When both ICs are
+    finite the threshold and PASS/FAIL are unchanged: 22 finite cases gave
+    identical results before and after. The shift checks' verdict for a
+    non-finite baseline now says the IC could not be computed instead of "too
+    close to zero"; the finite near-zero wording is unchanged. Tests:
+    `test_shuffle_on_the_public_runner_path`,
+    `test_shift_baseline_wording_on_the_public_runner_path`.
+  - Survivorship `tail_dates`: for a non-empty panel the valid range is 1 up to
+    the panel's number of dates; anything else raises `ValueError` in
+    `surviving_entities`, which `delisted_entities` and `run_survivorship_audit`
+    call (the runner reaches it through `run_survivorship_audit`). An empty
+    panel still returns an empty set, unchanged. Values 1 and 2 behave as
+    before. Tests:
+    `test_invalid_tail_dates_raise_instead_of_misdescribing_the_window`,
+    `test_valid_tail_dates_are_unchanged`.
 
-### Open here
+### Accepted limitation
 
-Recorded, not corrected, in this batch:
+Accepted as a current limitation, not corrected:
 
-- The alignment shuffle check (`ok = np.isfinite(perturbed) and`) reports a
-  non-finite result as FAIL rather than INCONCLUSIVE.
 - `survivorship` scores both arms over the same nominal evaluation window, but
   computes each IC independently, so the dates each arm can actually score
   (enough entities, non-constant cross-section) need not coincide. The gap can
-  therefore mix a composition difference with a difference in scorable dates.
-  The module docstring states this boundary; the algorithm is unchanged.
-- `survivorship` does not validate `tail_dates`. `surviving_entities` slices
-  `dates[-tail_dates:]`, so `0` selects every date, a negative value `-k`
-  selects all but the first `k` dates, and a value above the number of panel
-  dates selects every date. The verdicts and report still describe the window
-  as "the final N dates" (e.g. "the final 0 dates", "the final -1 dates"), so
-  the text and the slice disagree. Pre-existing; input validation or a change
-  to the slice is a separate behaviour decision, not made in this batch.
+  therefore mix a composition difference with a difference in scorable dates;
+  it is not presented as isolating a pure composition effect. The module
+  docstring states this boundary. Aligning the two arms on shared scorable
+  dates would change finite results and is left to a separate behaviour
+  change. Accepted by the maintainer on 2026-09-28; registered in `PLAN.md`
+  under "Future issue: shared scorable dates for the survivorship arms".
+- Found during this item's checks and registered, not changed: a direct call
+  to `run_survivorship_audit` with `scope="all"` scores the raw IC over all
+  dates but the gap over the test slice only. The runner always passes
+  `"test"`. Registered in `PLAN.md` under "Future issue: `scope` in direct
+  calls to `run_survivorship_audit`".
 
 This list is what was found by the checks in this item, not the result of a
 general audit of the repository; other open points may exist.
 
-Closing this item requires the four classes raised with `factor-zoo-audit` by
-the maintainer, and a decision on each point under "Open here".
+### Disposition: checked, limitation registered
+
+The check ran and its findings were corrected within the scope above; the one
+remaining point is written down as an accepted limitation with its remedy
+named, which is how Item 2 treats an accepted gap. `factor-zoo-audit` checked the
+four classes passed on 2026-09-23; the points added here after that date were
+not part of its acceptance scope, and nothing here claims either repository is
+free of defects. What would make this item PENDING again is a new finding in
+these classes, or a decision to require a sibling check of the later points.

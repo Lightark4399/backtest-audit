@@ -18,6 +18,7 @@ import pandas as pd
 import pytest
 
 from audit.audits.alignment import (
+    MIN_TESTABLE_IC,
     SHUFFLE_TOLERANCE,
     alignment_summary,
     demeaned_label_autocorrelation,
@@ -28,8 +29,11 @@ from audit.audits.alignment import (
     shift_labels,
     shuffle_labels_within_date,
 )
+from audit.coverage import AuditVerdict
 from audit.metrics.ic import demeaned_ic, rank_ic
 from audit.panel import DATE, ENTITY, LABEL, PRED, Panel
+from audit.report.text import format_alignment_audit
+from audit.run import run_baseline_audit
 from audit.synthetic import generate_panel
 
 
@@ -296,3 +300,100 @@ def test_inconclusive_is_distinct_from_passed():
     assert summary["all_passed"] is False
     assert summary["any_failed"] is False
     assert summary["inconclusive"]
+
+
+# ----------------------------------------------------------------------
+# Shuffle test: undefined IC is INCONCLUSIVE, not FAIL
+# ----------------------------------------------------------------------
+@pytest.mark.parametrize("case", ["constant_prediction", "honest"])
+def test_shuffle_on_the_public_runner_path(case):
+    """A constant prediction leaves every cross-sectional IC undefined.
+
+    Old behaviour: the shuffle check returned passed=False, "FAIL: IC remains
+    +nan ... produced by the evaluation path", so alignment_summary, the
+    coverage manifest and the text report all read FAIL. Target: passed=None
+    with an INCONCLUSIVE verdict, counted as inconclusive rather than failed.
+    Migration impact: only inputs whose baseline or shuffled IC is undefined
+    change; the honest control below keeps its finite PASS unchanged.
+    """
+    p, _ = generate_panel(skill=0.6)
+    if case == "constant_prediction":
+        p = p.replace_prediction(pd.Series(1.0, index=p.data.index))
+    result = run_baseline_audit(p)
+    check = next(c for c in result.alignment if c.name == "shuffle")
+    summary = alignment_summary(result.alignment)
+    entry = result.to_dict()["audit_coverage"]["audits"]["alignment"]
+    text = format_alignment_audit(result.alignment)
+
+    if case == "constant_prediction":
+        assert not np.isfinite(check.baseline_ic) and not np.isfinite(check.perturbed_ic)
+        assert check.passed is None
+        assert check.verdict.startswith("INCONCLUSIVE")
+        assert "baseline and shuffled IC are not finite" in check.verdict
+        assert "shuffle" not in summary["failed"] and "shuffle" in summary["inconclusive"]
+        assert not summary["any_failed"]
+        assert entry["verdict"] == AuditVerdict.INCONCLUSIVE.value
+        assert "[----] shuffle" in text and "[FAIL] shuffle" not in text
+        # Scoped to the shuffle block, the subject of this test; the shift checks'
+        # wording is covered by test_shift_baseline_wording_on_the_public_runner_path.
+        lines = text.splitlines()
+        start = next(i for i, ln in enumerate(lines) if "[----] shuffle" in ln)
+        end = next(
+            (i for i in range(start + 1, len(lines)) if lines[i].lstrip().startswith("[")),
+            len(lines),
+        )
+        block = "\n".join(lines[start:end])
+        assert "undefined -> undefined" in block
+        assert "nan" not in block.lower()
+    else:
+        assert np.isfinite(check.baseline_ic) and np.isfinite(check.perturbed_ic)
+        assert abs(check.perturbed_ic) < SHUFFLE_TOLERANCE
+        assert check.passed is True
+        assert check.verdict.startswith("PASS: IC collapses to")
+        assert check.detail["tolerance"] == SHUFFLE_TOLERANCE
+        assert "[PASS] shuffle" in text
+
+
+@pytest.mark.parametrize("case", ["constant_prediction", "no_skill", "honest"])
+def test_shift_baseline_wording_on_the_public_runner_path(case):
+    """An undefined baseline is not "too close to zero".
+
+    Old behaviour: a non-finite baseline shared the near-zero branch, so the
+    shift verdict read "demeaned IC under correct alignment is +nan, too close
+    to zero". Target: same passed=None, but the verdict says the IC could not
+    be computed. A finite baseline below MIN_TESTABLE_IC keeps the near-zero
+    wording, and a finite honest panel keeps its verdicts. Migration impact:
+    verdict text only, and only when the baseline is not finite.
+    """
+    skill = 0.0 if case == "no_skill" else 0.6
+    p, _ = generate_panel(skill=skill)
+    if case == "constant_prediction":
+        p = p.replace_prediction(pd.Series(1.0, index=p.data.index))
+    result = run_baseline_audit(p)
+    shifts = {c.name: c for c in result.alignment if c.name in ("shift+1", "shift-1")}
+    assert set(shifts) == {"shift+1", "shift-1"}
+    text = format_alignment_audit(result.alignment)
+
+    for check in shifts.values():
+        if case == "constant_prediction":
+            assert not np.isfinite(check.baseline_ic)
+            assert check.passed is None
+            assert check.verdict.startswith("INCONCLUSIVE")
+            assert "could not be computed" in check.verdict
+            assert "too close to zero" not in check.verdict
+            assert "no signal" not in check.verdict
+            assert "nan" not in check.verdict.lower()
+        elif case == "no_skill":
+            assert np.isfinite(check.baseline_ic)
+            assert abs(check.baseline_ic) < MIN_TESTABLE_IC
+            assert check.passed is None
+            assert "too close to zero" in check.verdict
+    if case == "constant_prediction":
+        assert "nan" not in text.lower()
+        assert "too close to zero" not in text
+    if case == "honest":
+        assert shifts["shift+1"].passed is True
+        assert shifts["shift+1"].verdict.startswith("PASS")
+        assert shifts["shift-1"].passed is None
+        assert shifts["shift-1"].verdict.startswith("DIAGNOSTIC")
+        assert shifts["shift-1"].detail["diagnostic_only"] is True

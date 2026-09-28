@@ -1,9 +1,9 @@
 {
   "provenance": {
-    "auditor_version": "0.1.2",
+    "auditor_version": "0.2.1",
     "build_commit": "unknown",
     "audited_project_commit": "unknown",
-    "generated_at": "2026-09-06T12:11:00+00:00",
+    "generated_at": "2026-09-28T15:37:52+00:00",
     "python": "3.12.10"
   },
   "config": {
@@ -318,7 +318,7 @@
     "n_groups": 4,
     "group_column": "group",
     "passed": true,
-    "verdict": "PASS: within-group IC (+0.4607) is close to pooled (+0.4663). The ranking ability survives inside groups, so it is not an artefact of group-level differences.",
+    "verdict": "PASS: within-group IC (+0.4607) is close to pooled (+0.4663), within the fixed 0.02 materiality threshold -- a diagnostic cut-off, not a significance test. This does not by itself show positive within-group predictive ability.",
     "per_group": [
       {
         "group": 0,
@@ -404,7 +404,7 @@
     "n_entities_delisted": 0,
     "survivor_rate": 1.0,
     "passed": null,
-    "verdict": "NO ATTRITION: every entity is present on the final date, so a survivors-only universe is identical to the point-in-time one. This says nothing about a real universe -- a panel assembled without delisted entities in the first place would look exactly like this, and the absence would be invisible here. Check that the source universe was built from listing and delisting dates.",
+    "verdict": "NO ATTRITION: every entity is present on the final date, so a survivors-only universe is identical to the panel as supplied. This says nothing about a real universe -- a panel assembled without delisted entities in the first place would look exactly like this, and the absence would be invisible here. Check that the source universe was built from listing and delisting dates.",
     "tail_dates": 1
   },
   "significance": {
@@ -422,7 +422,7 @@
       "effective_n": 31.049540096819584,
       "information_loss": 0.7014467298382732,
       "notes": [
-        "lag-1 autocorrelation 0.54: 104 observations carry about 31 independent observations' worth of information, so the naive t-statistic is optimistic"
+        "lag-1 autocorrelation 0.54: under an AR(1) approximation, 104 observations carry about 31 independent observations' worth of information. This is a lag-1 heuristic, not a statement about the naive or HAC standard error; dependence beyond lag 1 is not in this count"
       ]
     },
     "incremental_ic": {
@@ -439,7 +439,7 @@
       "effective_n": 30.83614192920913,
       "information_loss": 0.703498635296066,
       "notes": [
-        "lag-1 autocorrelation 0.54: 104 observations carry about 31 independent observations' worth of information, so the naive t-statistic is optimistic"
+        "lag-1 autocorrelation 0.54: under an AR(1) approximation, 104 observations carry about 31 independent observations' worth of information. This is a lag-1 heuristic, not a statement about the naive or HAC standard error; dependence beyond lag 1 is not in this count"
       ]
     }
   }

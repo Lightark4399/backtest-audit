@@ -221,7 +221,28 @@ def run_shuffle_test(
     base = _ic_mean(panel, method, scope)
     perturbed = _ic_mean(shuffle_labels_within_date(panel, seed=seed), method, scope)
 
-    ok = np.isfinite(perturbed) and abs(perturbed) < SHUFFLE_TOLERANCE
+    if not (np.isfinite(base) and np.isfinite(perturbed)):
+        undefined = [
+            name
+            for name, v in (("baseline", base), ("shuffled", perturbed))
+            if not np.isfinite(v)
+        ]
+        return AlignmentCheck(
+            name="shuffle",
+            description="labels permuted among entities within each date",
+            baseline_ic=base,
+            perturbed_ic=perturbed,
+            passed=None,
+            verdict=(
+                f"INCONCLUSIVE: the {' and '.join(undefined)} IC "
+                f"{'is' if len(undefined) == 1 else 'are'} not finite, so a "
+                "collapse cannot be tested. This is neither a pass nor evidence of "
+                "a misaligned evaluation path."
+            ),
+            detail={"tolerance": SHUFFLE_TOLERANCE, "seed": seed},
+        )
+
+    ok = abs(perturbed) < SHUFFLE_TOLERANCE
     if ok:
         verdict = (
             f"PASS: IC collapses to {perturbed:+.4f} when the entity-label pairing "
@@ -314,7 +335,13 @@ def run_shift_test(
     # date's labels than against its own. That is the criterion used. The
     # persistence figures are still reported, as context for reading the size of
     # the drop, but they do not gate the verdict.
-    if not np.isfinite(base) or abs(base) < MIN_TESTABLE_IC:
+    if not np.isfinite(base):
+        passed = None
+        verdict = (
+            f"INCONCLUSIVE: {basis} under correct alignment could not be "
+            "computed, so this check cannot assess date-specific alignment."
+        )
+    elif abs(base) < MIN_TESTABLE_IC:
         passed = None
         verdict = (
             f"INCONCLUSIVE: {basis} under correct alignment is {base:+.4f}, too "

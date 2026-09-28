@@ -159,6 +159,13 @@ def surviving_entities(panel: Panel, tail_dates: int = 1) -> set:
     dates = panel.dates
     if len(dates) == 0:
         return set()
+    # A slice with 0, a negative N or N beyond the panel would not select "the
+    # final N dates" that the verdict and report describe.
+    if not 1 <= tail_dates <= len(dates):
+        raise ValueError(
+            f"tail_dates must be between 1 and the panel's {len(dates)} dates; "
+            f"got {tail_dates}"
+        )
     tail = set(dates[-tail_dates:])
     return set(panel.data.loc[panel.data[DATE].isin(tail), ENTITY].unique())
 

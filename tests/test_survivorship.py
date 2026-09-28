@@ -288,3 +288,30 @@ def test_tail_window_keeps_an_entity_missing_only_the_last_date():
     assert "Present in tail window (demeaned IC)" in text
     for line in text.splitlines():
         assert len(line) <= WIDTH, line
+
+
+@pytest.mark.parametrize("tail_dates", [0, -1, "beyond"])
+def test_invalid_tail_dates_raise_instead_of_misdescribing_the_window(tail_dates):
+    """Old behaviour: the slice ``dates[-tail_dates:]`` silently selected every
+    date (0, or N beyond the panel) or dropped the first dates (negative N),
+    while the verdict and report said "the final N dates". Target: ValueError.
+    Migration impact: only these invalid values change; 1 up to the panel's
+    date count behave as before."""
+    p, _ = generate_panel_with_delisting(delist_hardness=0.0)
+    value = len(p.dates) + 1 if tail_dates == "beyond" else tail_dates
+    with pytest.raises(ValueError, match="tail_dates must be between 1 and"):
+        run_survivorship_audit(p, tail_dates=value)
+
+
+def test_valid_tail_dates_are_unchanged():
+    """Valid control: 1, 2 and the panel's full date count still run."""
+    p, _ = generate_panel_with_delisting(delist_hardness=0.0)
+    one = run_survivorship_audit(p, tail_dates=1)
+    two = run_survivorship_audit(p, tail_dates=2)
+    assert one.passed is False and one.n_entities_delisted > 0
+    assert "on the final date" in one.verdict
+    assert two.n_entities_surviving == len(surviving_entities(p, tail_dates=2))
+    assert "at least once in the final 2 dates" in two.verdict
+    full = run_survivorship_audit(p, tail_dates=len(p.dates))
+    assert full.n_entities_delisted == 0
+    assert full.verdict.startswith("NO ATTRITION")

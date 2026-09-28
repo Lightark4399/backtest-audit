@@ -284,13 +284,12 @@ def format_alignment_audit(checks: list) -> str:
     for c in checks:
         mark = {True: "PASS", False: "FAIL", None: "----"}[c.passed]
         out.append(f"  [{mark}] {c.name:<10}{c.description}")
-        # The ratio is only shown when the check reached a verdict. On an
-        # inconclusive check the baseline is near zero, so a percentage computed
-        # from it is arithmetically valid but meaningless, and printing it would
-        # invite the reader to draw a conclusion the check explicitly declined.
+        # The ratio is shown only alongside a PASS or FAIL verdict. INCONCLUSIVE
+        # and diagnostic-only checks (passed is None) reach no verdict, so no
+        # ratio is printed that could be read as one.
         show_ratio = c.passed is not None and np.isfinite(c.drop_ratio)
         out.append(
-            f"         {c.baseline_ic:+.4f} -> {c.perturbed_ic:+.4f}"
+            f"         {_fmt(c.baseline_ic)} -> {_fmt(c.perturbed_ic)}"
             + (f"   ({c.drop_ratio:+.0%})" if show_ratio else "")
         )
         # Wrap the verdict so long explanations stay readable in a terminal.

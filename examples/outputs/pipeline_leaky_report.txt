@@ -48,17 +48,21 @@ BASELINE DECOMPOSITION
       t-stat (naive)          220.16
       t-stat (Newey-West)     153.17   [maxlags=4, p=0.0000]
       SE inflation              1.44x  [lag-1 autocorr +0.34]
-      effective sample            51 of 104 days  [51% lost to serial dependence]
-      note: lag-1 autocorrelation 0.34: 104 observations carry about 51
-      independent observations' worth of information, so the naive
-      t-statistic is optimistic
+      effective n (AR(1))         51 of 104 days
+                            [51% lost to lag-1 dependence]
+      note: lag-1 autocorrelation 0.34: under an AR(1) approximation, 104
+      observations carry about 51 independent observations' worth of
+      information. This is a lag-1 heuristic, not a statement about the
+      naive or HAC standard error; dependence beyond lag 1 is not in this
+      count
 
   Increment over strongest baseline (persistence), partial correlation:
     Incremental IC                               +0.5507   [sd 0.073, hit 100%, n=104]
       t-stat (naive)           76.81
       t-stat (Newey-West)      63.61   [maxlags=4, p=0.0000]
       SE inflation              1.21x  [lag-1 autocorr +0.20]
-      effective sample            69 of 104 days  [33% lost to serial dependence]
+      effective n (AR(1))         69 of 104 days
+                            [33% lost to lag-1 dependence]
 
 ==============================================================================
 ALIGNMENT AUDIT
@@ -90,15 +94,15 @@ ALIGNMENT AUDIT
 SURVIVORSHIP
 ==============================================================================
 
-  96 entities, 0 absent at the end (0.0% attrition)
+  96 entities, 0 absent on the final date (0.0%)
 
-  Point-in-time universe (demeaned IC)             +0.8153
-  Survivors only (demeaned IC)                     +0.8153
-  Gap attributable to survivorship                 +0.0000
+  As-supplied panel (demeaned IC)                  +0.8153
+  Present in tail window (demeaned IC)             +0.8153
+  Gap (tail-window subset minus as-supplied)       +0.0000
 
   [----]
         NO ATTRITION: every entity is present on the final date, so a
-        survivors-only universe is identical to the point-in-time one. This
+        survivors-only universe is identical to the panel as supplied. This
         says nothing about a real universe -- a panel assembled without
         delisted entities in the first place would look exactly like this,
         and the absence would be invisible here. Check that the source
@@ -119,8 +123,8 @@ READING
 PROVENANCE
 ==============================================================================
 
-  auditor_version         0.1.2
+  auditor_version         0.2.1
   build_commit            unknown
   audited_project_commit  unknown
-  generated_at            2026-09-06T12:10:50+00:00
+  generated_at            2026-09-28T15:37:50+00:00
   python                  3.12.10

@@ -44,20 +44,26 @@ BASELINE DECOMPOSITION
       t-stat (naive)           44.94
       t-stat (Newey-West)      26.46   [maxlags=4, p=0.0000]
       SE inflation              1.70x  [lag-1 autocorr +0.54]
-      effective sample            31 of 104 days  [70% lost to serial dependence]
-      note: lag-1 autocorrelation 0.54: 104 observations carry about 31
-      independent observations' worth of information, so the naive
-      t-statistic is optimistic
+      effective n (AR(1))         31 of 104 days
+                            [70% lost to lag-1 dependence]
+      note: lag-1 autocorrelation 0.54: under an AR(1) approximation, 104
+      observations carry about 31 independent observations' worth of
+      information. This is a lag-1 heuristic, not a statement about the
+      naive or HAC standard error; dependence beyond lag 1 is not in this
+      count
 
   Increment over strongest baseline (persistence), partial correlation:
     Incremental IC                               +0.4682   [sd 0.107, hit 100%, n=104]
       t-stat (naive)           44.51
       t-stat (Newey-West)      26.21   [maxlags=4, p=0.0000]
       SE inflation              1.70x  [lag-1 autocorr +0.54]
-      effective sample            31 of 104 days  [70% lost to serial dependence]
-      note: lag-1 autocorrelation 0.54: 104 observations carry about 31
-      independent observations' worth of information, so the naive
-      t-statistic is optimistic
+      effective n (AR(1))         31 of 104 days
+                            [70% lost to lag-1 dependence]
+      note: lag-1 autocorrelation 0.54: under an AR(1) approximation, 104
+      observations carry about 31 independent observations' worth of
+      information. This is a lag-1 heuristic, not a statement about the
+      naive or HAC standard error; dependence beyond lag 1 is not in this
+      count
 
 ==============================================================================
 ALIGNMENT AUDIT
@@ -113,13 +119,15 @@ GROUP DECOMPOSITION
   Pooled IC (whole cross-section)                  +0.4663
   Within-group IC (size-weighted)                  +0.4607
   Within-group IC (unweighted)                     +0.4607
-  Between-group IC (ranking groups)                +0.3308
-  Level effect (pooled - within)                   +0.0057
+  Between-group IC (group averages)                +0.3308
+  Pooled minus within-group                        +0.0057
+  (three views of the same predictions, not additive components)
 
   [PASS]
-        PASS: within-group IC (+0.4607) is close to pooled (+0.4663). The
-        ranking ability survives inside groups, so it is not an artefact of
-        group-level differences.
+        PASS: within-group IC (+0.4607) is close to pooled (+0.4663), within
+        the fixed 0.02 materiality threshold -- a diagnostic cut-off, not a
+        significance test. This does not by itself show positive
+        within-group predictive ability.
 
     group               n rows   typical n        IC
     0                    3,120          30   +0.4559
@@ -131,15 +139,15 @@ GROUP DECOMPOSITION
 SURVIVORSHIP
 ==============================================================================
 
-  120 entities, 0 absent at the end (0.0% attrition)
+  120 entities, 0 absent on the final date (0.0%)
 
-  Point-in-time universe (demeaned IC)             +0.4686
-  Survivors only (demeaned IC)                     +0.4686
-  Gap attributable to survivorship                 +0.0000
+  As-supplied panel (demeaned IC)                  +0.4686
+  Present in tail window (demeaned IC)             +0.4686
+  Gap (tail-window subset minus as-supplied)       +0.0000
 
   [----]
         NO ATTRITION: every entity is present on the final date, so a
-        survivors-only universe is identical to the point-in-time one. This
+        survivors-only universe is identical to the panel as supplied. This
         says nothing about a real universe -- a panel assembled without
         delisted entities in the first place would look exactly like this,
         and the absence would be invisible here. Check that the source
@@ -161,8 +169,8 @@ READING
 PROVENANCE
 ==============================================================================
 
-  auditor_version         0.1.2
+  auditor_version         0.2.1
   build_commit            unknown
   audited_project_commit  unknown
-  generated_at            2026-09-06T12:11:00+00:00
+  generated_at            2026-09-28T15:37:52+00:00
   python                  3.12.10
