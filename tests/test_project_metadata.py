@@ -35,7 +35,7 @@ def test_release_version_is_a_valid_semantic_version():
 
 def test_the_plan_describes_the_declared_version():
     """The prose must name the version that ships, whatever it is."""
-    plan = (ROOT / "PLAN.md").read_text(encoding="utf-8")
+    plan = (ROOT / "docs" / "PLAN.md").read_text(encoding="utf-8")
     assert f"Version {_project()['version']}" in plan
 
 
@@ -84,7 +84,7 @@ def test_plan_describes_the_current_test_and_module_status():
     content that does not move with a release. Migration impact: none for
     callers; a release no longer needs this assertion edited.
     """
-    plan = (ROOT / "PLAN.md").read_text(encoding="utf-8")
+    plan = (ROOT / "docs" / "PLAN.md").read_text(encoding="utf-8")
     assert "audit coverage manifest" in plan
     assert "Execution timing and selection bias" in plan
     assert "Feature freeze" in plan
@@ -93,7 +93,7 @@ def test_plan_describes_the_current_test_and_module_status():
 
 
 def test_incident_log_records_the_coverage_contract_failure():
-    notes = (ROOT / "AI_NOTES.md").read_text(encoding="utf-8")
+    notes = (ROOT / "docs" / "AI_NOTES.md").read_text(encoding="utf-8")
     for incident in (15, 16, 17, 18):
         assert f"## Incident {incident}" in notes
     assert "business semantics" in notes
@@ -102,7 +102,7 @@ def test_incident_log_records_the_coverage_contract_failure():
 
 
 def test_spec_requires_unrun_modules_to_be_declared():
-    spec = (ROOT / "SPEC.md").read_text(encoding="utf-8")
+    spec = (ROOT / "docs" / "SPEC.md").read_text(encoding="utf-8")
     criterion = spec.split("**5.", 1)[1].split("**6.", 1)[0]
     assert "did not run" in criterion
     assert "reason" in criterion

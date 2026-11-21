@@ -273,7 +273,7 @@ def annualise_sharpe(sharpe: float, periods_per_year: int | None) -> float | Non
 
     There is deliberately no upper clamp, and no threshold above which the
     figure is suppressed as implausible -- the demo's zero-skill panel annualises
-    to 147 and that number is printed. Incident 12 in ``AI_NOTES.md`` is that
+    to 147 and that number is printed. Incident 12 in ``docs/AI_NOTES.md`` is that
     same figure: the temptation was to treat it as a bug and adjust until it
     looked reasonable, and it was correct. Suppression would also gate on
     "implausibly large", which cannot be estimated without bias from the data at
