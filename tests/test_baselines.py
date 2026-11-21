@@ -227,6 +227,48 @@ def test_controlling_for_the_level_twice_is_undefined():
     assert "note" in series.meta
 
 
+def test_training_mean_of_a_per_entity_constant_is_that_constant_exactly():
+    """Known truth: the mean of identical values is the value, to the bit.
+
+    The test above depends on this. pandas 3.1 broke it for sorted, NaN-free
+    groups (an uncompensated ``np.add.reduceat``), and the residue was enough
+    to turn "undefined" into a defined correlation. Equality is exact on
+    purpose: 1e-16 is precisely the error that mattered.
+    """
+    p, _ = generate_panel(skill=0.5)
+    codes = p.data[ENTITY].astype("category").cat.codes
+    constant = 0.1 * (codes + 1)
+    panel = Panel(
+        data=p.data.assign(c=constant), train_end=p.train_end, label_name=p.label_name
+    )
+
+    mu = panel.per_entity_train_mean("c")
+    expected = panel.data.groupby(ENTITY)["c"].first()
+    assert (mu == expected).all(), (mu - expected).abs().max()
+
+
+def test_training_mean_of_a_varying_column_is_still_its_mean():
+    """Paired control: the shifted mean must not change what a mean is."""
+    p, _ = generate_panel(skill=0.5)
+    tr = p.train_slice()
+    expected = tr.groupby(ENTITY)[LABEL].apply(lambda s: float(np.mean(s.to_numpy())))
+    mu = p.per_entity_train_mean(LABEL)
+    assert mu.index.equals(expected.index)
+    np.testing.assert_allclose(mu.to_numpy(), expected.to_numpy(), rtol=1e-12, atol=0)
+
+    # Missing values are skipped, as pandas' mean skips them; an entity with no
+    # training observation stays NaN rather than acquiring a value.
+    first, second = mu.index[:2]
+    labels = p.data[LABEL].where(p.data[ENTITY] != first)
+    first_row = p.data.index[(p.data[ENTITY] == second)][0]
+    labels.loc[first_row] = np.nan
+    holed = Panel(data=p.data.assign(**{LABEL: labels}), train_end=p.train_end)
+    mu_holed = holed.per_entity_train_mean(LABEL)
+    assert np.isnan(mu_holed[first])
+    second_train = holed.train_slice().loc[lambda d: d[ENTITY] == second, LABEL]
+    assert mu_holed[second] == pytest.approx(second_train.dropna().mean(), rel=1e-12)
+
+
 def test_baseline_panel_scored_through_same_code_path():
     """A baseline panel must be a valid Panel with the baseline as prediction."""
     p, _ = generate_panel(skill=0.3)
