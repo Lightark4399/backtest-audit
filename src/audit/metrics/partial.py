@@ -154,7 +154,7 @@ def incremental_ic(
         view, diag = demean_by_train_mean(tmp)
 
         # The control gets the same treatment using its own training mean.
-        base_train_mean = work.loc[work[DATE] <= te].groupby(ENTITY)["_baseline"].mean()
+        base_train_mean = tmp.per_entity_train_mean("_baseline")
         view = view.copy()
         view["_baseline_dm"] = view["_baseline"] - view[ENTITY].map(base_train_mean)
 

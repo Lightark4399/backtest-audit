@@ -264,10 +264,23 @@ class Panel:
         Returned as a Series indexed by ``entity_id``. Entities with no training
         observations get ``NaN`` -- callers must decide whether to drop them
         rather than have a fabricated value substituted here.
+
+        Computed as a shifted mean, ``first + mean(x - first)``, so that a column
+        constant within an entity returns that constant bit for bit: ``x - first``
+        is exactly zero and a sum of zeros is zero under any summation order. A
+        plain ``groupby().mean()`` gives no such guarantee. pandas 3.1 sums sorted,
+        NaN-free groups with an uncompensated ``np.add.reduceat``, which returns
+        ``0.09999999999999996`` for the mean of fifty-two 0.1s. Demeaning a
+        per-entity-constant series by its own mean then leaves ~1e-16 residue in
+        place of zero, and rank-based statistics turn that residue into a
+        full-variance series -- a defined correlation where the truth is undefined.
         """
         self.require_train_end("per_entity_train_mean")
         tr = self.train_slice()
-        return tr.groupby(ENTITY)[column].mean()
+        grouped = tr.groupby(ENTITY)[column]
+        anchor = grouped.first()
+        shifted = tr[column] - tr[ENTITY].map(anchor)
+        return anchor + shifted.groupby(tr[ENTITY]).mean()
 
     def cross_sections(self, scope: str = "test") -> Iterable[tuple[pd.Timestamp, pd.DataFrame]]:
         """Yield ``(date, frame)`` for each event date in the chosen scope."""

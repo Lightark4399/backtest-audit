@@ -153,6 +153,49 @@ def test_result_serialises_with_the_counts_needed_to_interpret_it():
     assert 0.0 < d["survivor_rate"] < 1.0
 
 
+def _survivors_at_their_level(p: Panel) -> Panel:
+    """Survivors predict their own mean on every date: constant per entity.
+
+    After training-mean demeaning a survivor's prediction is exactly zero, so the
+    survivors-only demeaned IC has no variation to correlate and is undefined.
+    """
+    survivors = surviving_entities(p)
+    data = p.data.copy()
+    is_survivor = data[ENTITY].isin(survivors)
+    level = data.groupby(ENTITY)["prediction"].transform("mean")
+    data.loc[is_survivor, "prediction"] = level[is_survivor]
+    return Panel(data=data, train_end=p.train_end)
+
+
+def _survivors_degraded(p: Panel, seed: int = 0) -> Panel:
+    """Survivors keep their level and lose all skill, but not all variation.
+
+    Each survivor predicts its own mean plus independent noise with the spread of
+    the original prediction's deviations: zero information about the label, and a
+    demeaned IC that is defined and near zero.
+
+    Old behaviour: survivors predicted their mean exactly (now
+    ``_survivors_at_their_level``). Mathematically that leaves no variation once
+    demeaned, but the demeaned values held ~1e-16 rounding residue, and the
+    Spearman rank of that residue gave a defined survivors IC -- +0.0061 under
+    pandas 3.0.6 and -0.0212 under 3.1.1 -- so the two survivorship tests built on
+    it passed on noise. Target behaviour: the per-entity training mean is exact
+    for a constant entity, the degenerate fixture's IC is undefined (asserted in
+    ``test_survivors_reduced_to_their_level_leave_the_gap_undefined``), and the
+    opposite-direction tests use this fixture, which has a real zero-skill signal.
+    Migration impact: none outside the tests. The assertions on the opposite-
+    direction case are unchanged; only the panel they are asserted on changed.
+    """
+    survivors = surviving_entities(p)
+    data = p.data.copy()
+    is_survivor = data[ENTITY].isin(survivors)
+    level = data.groupby(ENTITY)["prediction"].transform("mean")
+    spread = float((data["prediction"] - level).std())
+    noise = np.random.default_rng(seed).normal(0.0, spread, size=len(data))
+    data.loc[is_survivor, "prediction"] = (level + noise)[is_survivor]
+    return Panel(data=data, train_end=p.train_end)
+
+
 def test_opposite_direction_is_reported_as_a_pass_with_an_explanation():
     """Leavers being EASIER to predict understates rather than flatters.
 
@@ -162,12 +205,7 @@ def test_opposite_direction_is_reported_as_a_pass_with_an_explanation():
     handle it as a pass with an explanation rather than as an anomaly.
     """
     p, _ = generate_panel_with_delisting(delist_hardness=1.0)
-    survivors = surviving_entities(p)
-    data = p.data.copy()
-    is_survivor = data[ENTITY].isin(survivors)
-    level = data.groupby(ENTITY)["prediction"].transform("mean")
-    data.loc[is_survivor, "prediction"] = level[is_survivor]  # survivors lose all skill
-    degraded = Panel(data=data, train_end=p.train_end)
+    degraded = _survivors_degraded(p)
 
     res = run_survivorship_audit(degraded)
     assert res.gap < -MATERIAL_GAP
@@ -228,13 +266,22 @@ def test_undefined_gap_is_not_a_pass():
     assert control.verdict.startswith("NO ATTRITION")
 
 
-def _survivors_degraded(p: Panel) -> Panel:
-    survivors = surviving_entities(p)
-    data = p.data.copy()
-    is_survivor = data[ENTITY].isin(survivors)
-    level = data.groupby(ENTITY)["prediction"].transform("mean")
-    data.loc[is_survivor, "prediction"] = level[is_survivor]
-    return Panel(data=data, train_end=p.train_end)
+def test_survivors_reduced_to_their_level_leave_the_gap_undefined():
+    """Paired control for the opposite-direction pass: same panel, no variation.
+
+    Survivors that predict exactly their own level have nothing left after
+    demeaning. That is undefined, not a near-zero IC, and an undefined arm must
+    not produce a PASS. Before the per-entity mean was made exact this case
+    returned PASS with a survivors IC of rounding noise.
+    """
+    p, _ = generate_panel_with_delisting(delist_hardness=1.0)
+    res = run_survivorship_audit(_survivors_at_their_level(p))
+    assert res.n_entities_delisted > 0
+    assert not np.isfinite(res.survivors_demeaned_ic)
+    assert not np.isfinite(res.gap)
+    assert res.passed is None
+    assert res.verdict.startswith("INCONCLUSIVE")
+    assert "PASS" not in res.verdict and "nan" not in res.verdict
 
 
 @pytest.mark.parametrize(
