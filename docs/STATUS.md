@@ -14,7 +14,8 @@ execution-timing decay, Deflated Sharpe and FDR screening, text and JSON
 reports, offline demo, and a test suite built around known-truth controls.
 
 Possible extensions are listed with their rationale and cost in
-[PLAN.md](PLAN.md#roadmap). None of them blocks the framework being usable: the
+[PLAN.md](PLAN.md#feature-freeze). None of them blocks the framework being usable: the
 nine channels of inflation it enumerates are each implemented and tested. Every
-report now carries an audit coverage manifest: a channel that did not run remains
+full audit report (from `btca` and the demo's case reports) now carries an audit
+coverage manifest: a channel that did not run remains
 visible with the missing evidence or configuration decision that prevented it.

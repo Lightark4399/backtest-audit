@@ -231,9 +231,10 @@ random folds hand the model rows drawn from the test period's regime. A module
 that condemned shuffling unconditionally would be repeating a rule of thumb; this
 one measures whether the rule applies to your data.
 
-### The full report, for the skill-free case
+### Report excerpt: the skill-free case
 
-The full report makes the decomposition explicit:
+An excerpt from the skill-free case's report, its baseline decomposition and
+reading, makes the decomposition explicit:
 
 ```
 ==============================================================================

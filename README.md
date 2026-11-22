@@ -76,9 +76,13 @@ genuine_skill      +0.8577       +0.6880     +0.4667      +0.5197
 Raw IC rates the skill-free model at 0.63, a number most backtest reports would
 present as a strong result. Demeaned IC rates it at 0.0006. Both panels are
 synthetic with **known** ground truth, so the right answer is not a matter of
-opinion. The Sharpe figures are not achievable returns; they are the IC in
-different units, computed because this is the form in which the deception is
-normally encountered.
+opinion.
+
+The Sharpe figures are not achievable returns. Each date's score is the sum of
+dollar-neutral, unit-gross rank positions built from the same predictions,
+multiplied by the label; the Sharpe is that score's mean over time divided by
+its standard deviation. It is computed because this is the form in which the
+deception is normally encountered.
 
 ---
 
@@ -111,15 +115,17 @@ pipeline in any language can produce it. The Postgres-backed parts
 ## What it checks
 
 One audit module for each of the nine channels of inflation the
-[spec](docs/SPEC.md) enumerates. Every report carries a coverage manifest: a
+[spec](docs/SPEC.md) enumerates. Every full audit report (the `btca` output and
+the demo's five case reports, text and JSON) carries a coverage manifest: a
 module that did not run still appears, with its reason and the evidence it needs.
+The standalone point-in-time, execution-timing and selection reports do not.
 
 | Module | What it catches | Needs |
 |---|---|---|
 | Baseline decomposition | Score a naive predictor gets for free; demeaned IC and partial-correlation increment over the strongest baseline | `prediction`, `label` |
 | Alignment | Whether the score depends on correct time alignment (shuffle, forward shift, backward diagnostic) | `event_date` |
 | Point-in-time | Features computed from data revised after the fact | event and knowledge times, as-of evidence |
-| Survivorship | A universe missing its failures, from panel-derived attrition | dated universe membership |
+| Survivorship | Attrition visible inside the panel: entities absent from its final dates, and how far the demeaned IC moves when they are dropped (survivors-only vs as-supplied). Cannot see entities excluded before the panel was built | dated universe membership |
 | Grouping | A score that works only across groups, not within them | a group column |
 | Serial-dependence significance | Autocorrelation inflating t-statistics (Newey-West HAC, effective sample size) | a dated IC series |
 | Validation protocol | A split that leaks: random vs walk-forward vs embargoed walk-forward | feature columns `f_*` |
@@ -144,8 +150,13 @@ distinct from one that was `SKIPPED`. Why each design choice was made is in
 - **The baselines are not exhaustive.** Beating them means a result is not
   obviously free, not that it is useful. A fitted GARCH or an implied-volatility
   quote would be stronger controls and is not implemented.
-- **Linear methods throughout.** Partial correlation controls for linear
-  dependence on the baseline only.
+- **Survivorship sees only attrition inside the panel.** An entity excluded
+  before the panel was assembled, as in a universe backfilled from today's
+  constituents, is invisible to it, and the audit then reports no attrition.
+- **The baseline control is linear.** The partial-correlation increment removes
+  only linear dependence on the baseline. Demeaned IC and the increment use
+  Spearman rank correlation by default; raw IC is reported as Pearson, alongside
+  a Spearman rank IC.
 
 Known blind spots of individual modules are discussed in
 [docs/DESIGN.md](docs/DESIGN.md).
