@@ -41,14 +41,16 @@ from .test_project_metadata import ROOT
 
 DOCS = (
     "README.md",
-    "PLAN.md",
-    "SPEC.md",
-    "AI_NOTES.md",
-    "CROSS_REPO_AUDIT.md",
-    "MIGRATION.md",
+    "docs/DESIGN.md",
+    "docs/STATUS.md",
+    "docs/PLAN.md",
+    "docs/SPEC.md",
+    "docs/AI_NOTES.md",
+    "docs/CROSS_REPO_AUDIT.md",
+    "docs/MIGRATION.md",
 )
 
-# The marker already used for the effective-sample-size block in README: the
+# The marker already used for the effective-sample-size block in DESIGN: the
 # prose introducing the fence says the figures are illustrative. One convention,
 # read by machine as well as by a person, rather than a second one invented here.
 ILLUSTRATIVE = "illustrative"
@@ -161,17 +163,26 @@ def test_the_check_reads_some_figures_rather_than_passing_vacuously():
 def test_the_illustrative_marker_exempts_a_block_and_is_actually_in_use():
     """The exemption must work, and must not be a facility nobody uses.
 
-    README's effective-sample-size block shows strong positive autocorrelation to
+    DESIGN's effective-sample-size block shows strong positive autocorrelation to
     make the point readable; the demo panels are close to independent and report
     an SE inflation near 1.0. It is an illustration, not a transcript, and it is
     the reason this convention exists rather than a hypothetical.
+
+    Old behaviour: read README.md, which held both the illustrative ESS block and
+    the genuine full-report excerpt quoting ``t-stat (naive)``.
+    Target behaviour: reads docs/DESIGN.md. The README restructure moved the
+    "Design decisions" section there, and moved the full-report excerpt with it
+    so both blocks stay in one document. Only the file read changed; every
+    assertion below is unchanged.
+    Migration impact: none for code. A future edit that splits the two blocks
+    across documents again fails here, as it should.
     """
-    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    readme = (ROOT / "docs" / "DESIGN.md").read_text(encoding="utf-8")
     assert ILLUSTRATIVE in readme
 
     quoted = {content for _, (content,) in _quoted_blocks(readme)}
     # 4.21 appears only in the illustrative block. "t-stat (naive)" would not do:
-    # it also appears in README's genuine full-report excerpt, so asserting on it
+    # it also appears in DESIGN's genuine full-report excerpt, so asserting on it
     # would test a string with two homes rather than the exemption.
     assert not any("4.21" in line for line in quoted), (
         "the illustrative block is being scanned; the marker is not taking effect"

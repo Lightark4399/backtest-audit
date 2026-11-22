@@ -39,8 +39,8 @@ A calendar-based reconstruction has no such blind spot. The SQL macro
 ``universe_asof`` in ``sql/duckdb/001_schema.sql``, reachable through
 ``BitemporalStore.universe()``, implements one -- but this module does not call
 it, and nothing in the audit pipeline does. It is available to callers who
-already hold a bitemporal store. ``PLAN.md`` records what would make wiring it
-worth doing, and ``CROSS_REPO_AUDIT.md`` records why it was left unwired here.
+already hold a bitemporal store. ``docs/PLAN.md`` records what would make wiring it
+worth doing, and ``docs/CROSS_REPO_AUDIT.md`` records why it was left unwired here.
 
 What this module measures
 -------------------------

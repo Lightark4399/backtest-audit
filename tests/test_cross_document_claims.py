@@ -73,7 +73,7 @@ from audit.coverage import AUDIT_REGISTRY
 from .test_project_metadata import ROOT
 
 CLAUDE = "CLAUDE.md"
-PLAN = "PLAN.md"
+PLAN = "docs/PLAN.md"
 
 # `- Declined: a, b, c — prose` / `- Deferred: x — prose`
 _CLAIM = re.compile(r"^\s*-\s+(Declined|Deferred):\s*(.+)$")
@@ -187,8 +187,8 @@ def test_every_decline_in_plan_is_accounted_for_by_claude():
 # ----------------------------------------------------------------------
 # MIGRATION.md against the package it documents
 # ----------------------------------------------------------------------
-MIGRATION = "MIGRATION.md"
-SPEC = "SPEC.md"
+MIGRATION = "docs/MIGRATION.md"
+SPEC = "docs/SPEC.md"
 
 _BACKTICKED = re.compile(r"`([^`]+)`")
 _DOTTED = re.compile(r"`([A-Z][A-Za-z0-9_]*)\.([a-z_][a-z0-9_]*)(?:\(\))?`")

@@ -1,7 +1,7 @@
 # CLAUDE.md
 
-Working rules for this repository. `SPEC.md` is the contract, `PLAN.md` the build
-order, `AI_NOTES.md` the incidents these rules come from — read those first.
+Working rules for this repository. `docs/SPEC.md` is the contract, `docs/PLAN.md` the build
+order, `docs/AI_NOTES.md` the incidents these rules come from — read those first.
 
 ## Status: feature-frozen
 

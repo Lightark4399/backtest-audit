@@ -247,7 +247,7 @@ def deflated_sharpe(
     ``V[{SR_n}]``, the variance of the estimated Sharpe ratios *across the N
     trials*. That is a property of the search: it needs the Sharpe of every
     candidate examined, which needs a trial ledger. This repository has
-    deliberately deferred that ledger, so ``PLAN.md`` records it as the
+    deliberately deferred that ledger, so ``docs/PLAN.md`` records it as the
     precondition for computing ``SR*`` as defined rather than as a matter of
     traceability.
 
